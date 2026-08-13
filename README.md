@@ -21,13 +21,16 @@ La primera versión incluye:
 
 ## Arquitectura
 
-- `index.html`: estructura y contenido principal.
-- `styles.css`: identidad base y layout general.
-- `components.css`: órbita, juego, tarjetas y componentes específicos.
-- `script.js`: navegación, carga de componentes y revelado progresivo.
+- `index.html`: estructura semántica, contenido principal y declaración estática de estilos y scripts.
+- `styles.css`: identidad base, layout general, navegación, tipografía y comportamiento responsive.
+- `components.css`: órbita, juego, tarjetas, progreso y componentes específicos.
+- `script.js`: navegación, año dinámico y revelado progresivo.
 - `game.js`: lógica del mini crucigrama y progreso local.
 - `privacy.html`: política de privacidad.
 - `sitemap.xml`: rutas públicas principales.
+- `.nojekyll`: publicación estática directa mediante GitHub Pages.
+
+Las dependencias propias de la interfaz (`components.css` y `game.js`) se declaran directamente en `index.html`; `script.js` no crea recursos adicionales durante la carga.
 
 ## Privacidad
 
