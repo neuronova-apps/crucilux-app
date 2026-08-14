@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Crucilux es un MVP web con tres retos de crucigrama, nueve palabras, edición directa de letras y pistas graduales para practicar vocabulario y razonamiento verbal.">
+  <meta name="description" content="Crucilux es un MVP web con tres retos de crucigrama, nueve palabras, edición directa de letras, pistas graduales y guías educativas para practicar vocabulario y razonamiento verbal.">
   <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1">
   <meta name="application-name" content="Crucilux">
   <meta name="theme-color" content="#06101d">
@@ -12,7 +12,7 @@
   <meta property="og:locale" content="es_PE">
   <meta property="og:site_name" content="Neuronova Apps">
   <meta property="og:title" content="Crucilux | Crucigramas y retos de palabras">
-  <meta property="og:description" content="Resuelve tres crucigramas escribiendo letras en sus casillas y usa feedback y pistas graduales cuando necesites orientación.">
+  <meta property="og:description" content="Resuelve tres crucigramas, recibe feedback progresivo y consulta guías sobre pistas, cruces, estrategias y vocabulario.">
   <meta property="og:url" content="https://neuronova-apps.github.io/crucilux-app/">
   <meta property="og:image" content="https://neuronova-apps.github.io/crucilux-app/favicon.svg">
   <meta property="og:image:type" content="image/svg+xml">
@@ -22,13 +22,14 @@
   <link rel="canonical" href="https://neuronova-apps.github.io/crucilux-app/">
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="Crucilux | Crucigramas y retos de palabras">
-  <meta name="twitter:description" content="Tres retos y nueve palabras con entrada directa de letras, feedback educativo y pistas graduales.">
+  <meta name="twitter:description" content="Tres retos, nueve palabras y cinco guías educativas sobre resolución de crucigramas.">
   <meta name="twitter:image" content="https://neuronova-apps.github.io/crucilux-app/favicon.svg">
   <meta name="twitter:image:alt" content="Símbolo de Crucilux">
   <title>Crucilux | Crucigramas y retos de palabras</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="styles.css">
   <link rel="stylesheet" href="components.css">
+  <link rel="stylesheet" href="guide-cards.css">
   <script src="script.js" defer></script>
   <script src="game.js" defer></script>
   <script src="feedback.js" defer></script>
@@ -49,6 +50,7 @@
       <nav id="main-nav" class="main-nav" aria-label="Navegación principal">
         <a href="#jugar">Jugar</a>
         <a href="#como-funciona">Cómo funciona</a>
+        <a href="#guias">Guías</a>
         <a href="#progreso">Progreso</a>
         <a href="https://neuronova-apps.github.io/">Neuronova</a>
       </nav>
@@ -61,10 +63,10 @@
         <div class="hero-copy reveal">
           <p class="eyebrow"><span class="pulse-dot" aria-hidden="true"></span> MVP web funcional · Palabras · lógica · concentración</p>
           <h1>Conecta pistas. <span>Descubre palabras.</span></h1>
-          <p class="lead">Crucilux ofrece tres retos de crucigrama con categorías distintas. Escribe cada letra directamente en el tablero, aprovecha los cruces y recibe orientación gradual cuando una palabra todavía no encaja.</p>
+          <p class="lead">Crucilux ofrece tres retos de crucigrama con categorías distintas. Escribe cada letra directamente en el tablero, aprovecha los cruces, recibe orientación gradual y consulta guías para comprender mejor las pistas y estrategias de resolución.</p>
           <div class="hero-actions">
             <a class="button primary" href="#jugar">Elegir reto <span aria-hidden="true">→</span></a>
-            <a class="button ghost" href="#como-funciona">Conocer Crucilux</a>
+            <a class="button ghost" href="#guias">Explorar guías</a>
           </div>
           <div class="hero-metrics" aria-label="Características actuales">
             <div><strong>03</strong><span>Retos disponibles</span></div>
@@ -169,6 +171,22 @@
       </div>
     </section>
 
+    <section id="guias" class="section guides-section">
+      <div class="container">
+        <div class="section-heading reveal">
+          <div><p class="eyebrow">Guías de Crucilux</p><h2>Aprende a leer pistas y aprovechar los cruces.</h2></div>
+          <p>Cinco recursos independientes amplían la práctica del juego con explicaciones sobre método, tipos de pistas, primeros pasos, estrategias y vocabulario.</p>
+        </div>
+        <div class="guide-grid">
+          <a class="guide-card reveal" href="como-resolver-crucigramas.html"><span>Guía 01</span><h3>Cómo resolver crucigramas</h3><p>Un proceso paso a paso para pasar de la pista al patrón y utilizar cada cruce como comprobación.</p><strong>Leer guía →</strong></a>
+          <a class="guide-card reveal" href="tipos-de-pistas-crucigramas.html"><span>Guía 02</span><h3>Tipos de pistas</h3><p>Definiciones directas, descripciones por función, asociaciones conceptuales y pistas apoyadas por patrones.</p><strong>Leer guía →</strong></a>
+          <a class="guide-card reveal" href="crucigramas-para-principiantes.html"><span>Guía 03</span><h3>Crucigramas para principiantes</h3><p>Una rutina sencilla para empezar por respuestas seguras, dejar huecos útiles y aprender de los cruces.</p><strong>Leer guía →</strong></a>
+          <a class="guide-card reveal" href="estrategias-crucigramas.html"><span>Guía 04</span><h3>Estrategias de resolución</h3><p>Prioriza información segura, formula candidatos, alterna direcciones y revisa posiciones débiles.</p><strong>Leer guía →</strong></a>
+          <a class="guide-card reveal" href="vocabulario-y-crucigramas.html"><span>Guía 05</span><h3>Vocabulario y crucigramas</h3><p>Cómo se combinan significado, categorías, reconocimiento de palabras y forma escrita dentro de una cuadrícula.</p><strong>Leer guía →</strong></a>
+        </div>
+      </div>
+    </section>
+
     <section id="progreso" class="section progress-section">
       <div class="container progress-panel reveal">
         <div><p class="eyebrow">Tu progreso</p><h2>Cada reto conserva tablero y marca.</h2><p>Crucilux guarda las letras parciales y las palabras ya resueltas del desafío seleccionado. Las ayudas graduales y el feedback educativo funcionan durante la sesión y no modifican la mejor marca ni resuelven una palabra por sí solos.</p></div>
@@ -183,9 +201,9 @@
 
   <footer class="site-footer">
     <div class="container footer-grid">
-      <div><a class="brand" href="#inicio"><span class="brand-symbol" aria-hidden="true">CR</span><span class="brand-copy"><strong>Crucilux</strong><span>Neuronova Apps</span></span></a><p>Tres crucigramas y nueve respuestas con entrada directa de letras, feedback y ayudas graduales para practicar vocabulario y razonamiento verbal.</p></div>
-      <div class="footer-column"><h2>Explorar</h2><a href="#jugar">Jugar</a><a href="#como-funciona">Cómo funciona</a><a href="#progreso">Progreso</a></div>
-      <div class="footer-column"><h2>Información</h2><a href="privacy.html">Privacidad</a><a href="https://github.com/neuronova-apps/crucilux-app">GitHub</a><a href="https://neuronova-apps.github.io/">Neuronova Apps</a></div>
+      <div><a class="brand" href="#inicio"><span class="brand-symbol" aria-hidden="true">CR</span><span class="brand-copy"><strong>Crucilux</strong><span>Neuronova Apps</span></span></a><p>Tres crucigramas, nueve respuestas y cinco guías educativas para practicar vocabulario y razonamiento verbal.</p></div>
+      <div class="footer-column"><h2>Explorar</h2><a href="#jugar">Jugar</a><a href="#como-funciona">Cómo funciona</a><a href="#guias">Guías</a><a href="#progreso">Progreso</a></div>
+      <div class="footer-column"><h2>Información</h2><a href="como-resolver-crucigramas.html">Cómo resolver</a><a href="privacy.html">Privacidad</a><a href="https://github.com/neuronova-apps/crucilux-app">GitHub</a><a href="https://neuronova-apps.github.io/">Neuronova Apps</a></div>
     </div>
     <div class="container footer-bottom"><p>© <span id="year"></span> Crucilux · Neuronova Apps.</p><p>MVP web funcional · Palabras · lógica · concentración</p></div>
   </footer>
