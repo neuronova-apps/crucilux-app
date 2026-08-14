@@ -4,11 +4,11 @@ Crucilux es una aplicación web de crucigramas y retos de palabras perteneciente
 
 ## Propósito
 
-La propuesta busca ejercitar vocabulario, memoria, atención y razonamiento verbal mediante pistas breves, asociación de conceptos y resolución de palabras.
+La propuesta busca ejercitar vocabulario, atención y razonamiento verbal mediante pistas breves, asociación de conceptos, resolución de palabras y recursos educativos sobre estrategias de crucigramas.
 
 ## Estado actual
 
-Crucilux se encuentra como **MVP web funcional en desarrollo activo**. La versión disponible incorpora una progresión inicial de **tres retos seleccionables y nueve palabras en total**, con escritura de letras directamente dentro de la cuadrícula y ayudas educativas graduales.
+Crucilux se encuentra como **MVP web funcional en desarrollo activo**. La versión disponible incorpora una progresión inicial de **tres retos seleccionables y nueve palabras en total**, escritura de letras directamente dentro de la cuadrícula, ayudas educativas graduales y **cinco guías públicas e indexables**.
 
 La versión actual incluye:
 
@@ -35,9 +35,10 @@ La versión actual incluye:
 - restauración del avance después de recargar en el mismo navegador;
 - migración compatible desde los formatos anteriores;
 - funcionamiento en memoria si `localStorage` no está disponible;
+- cinco guías educativas HTML con canonical, `index, follow`, navegación cruzada y acceso a la práctica;
 - diseño responsive;
 - skip link, controles HTML nativos, regiones de estado mediante `aria-live` y soporte para `prefers-reduced-motion`;
-- política de privacidad y sitemap.
+- política de privacidad y sitemap con siete URLs públicas.
 
 No existen todavía niveles adaptativos, generación dinámica de crucigramas, un sistema de pistas basado en análisis avanzado del tablero ni validación formal de accesibilidad. Estas capacidades no deben considerarse disponibles hasta estar implementadas y verificadas.
 
@@ -112,6 +113,32 @@ El control **Pista gradual** ofrece hasta tres niveles por palabra durante la se
 
 Las pistas no escriben letras, no incrementan el progreso y no marcan palabras como resueltas. El nivel de pista mostrado y el feedback visual son estados temporales de interfaz y no se guardan en `localStorage`.
 
+## Guías educativas indexables
+
+Crucilux incorpora cinco páginas estáticas independientes del motor del juego:
+
+- `como-resolver-crucigramas.html`: método paso a paso para interpretar pistas, utilizar patrones y validar mediante cruces;
+- `tipos-de-pistas-crucigramas.html`: definiciones directas, descripciones por función, asociaciones conceptuales y uso del patrón;
+- `crucigramas-para-principiantes.html`: rutina inicial para resolver respuestas seguras, dejar huecos útiles y aprovechar letras confirmadas;
+- `estrategias-crucigramas.html`: priorización, candidatos, alternancia horizontal/vertical y revisión de posiciones débiles;
+- `vocabulario-y-crucigramas.html`: relación entre significado, categorías, recuperación de palabras, ortografía y cruces.
+
+Cada guía dispone de:
+
+- título y descripción propios;
+- canonical absoluto;
+- `robots="index, follow"`;
+- Open Graph/Twitter básico con el activo social provisional actual;
+- un único `h1`;
+- skip link;
+- navegación cruzada entre las cinco guías;
+- enlace directo a la demo de Crucilux;
+- estilos compartidos mediante `resources.css`.
+
+La portada presenta estas páginas en la sección **Guías de Crucilux**, cuyo diseño se mantiene en `guide-cards.css`.
+
+Estas páginas son contenido educativo estático. No modifican la partida, no analizan automáticamente el tablero y no convierten las ayudas graduales del juego en un sistema adaptativo.
+
 ## Progreso local
 
 Crucilux utiliza la clave `crucilux-progress-v1` para conservar localmente el estado de los retos.
@@ -148,26 +175,29 @@ Solo la casilla seleccionada permanece en el orden de tabulación; el desplazami
 
 El menú móvil actualiza su nombre entre **Abrir menú de navegación** y **Cerrar menú de navegación**. Si se cierra con `Escape`, el foco vuelve al botón del menú. Los enlaces y botones disponen además de un indicador `:focus-visible` explícito.
 
-Estas mejoras no se presentan como certificación WCAG ni sustituyen pruebas manuales con lectores de pantalla, ampliación, alto contraste u otras tecnologías de asistencia. Esa validación formal sigue siendo una tarea posterior.
+Las guías educativas usan estructura semántica, skip link, foco visible y navegación directa entre recursos. Estas mejoras no se presentan como certificación WCAG ni sustituyen pruebas manuales con lectores de pantalla, ampliación, alto contraste u otras tecnologías de asistencia. Esa validación formal sigue siendo una tarea posterior.
 
 ## Arquitectura
 
-- `index.html`: estructura semántica, selector de retos, instrucciones del tablero, pistas, controles de comprobación y panel educativo.
+- `index.html`: estructura semántica, selector de retos, juego, sección de guías y contenido principal.
 - `styles.css`: identidad base, layout general, navegación, foco visible, tipografía y comportamiento responsive.
 - `components.css`: órbita, selector de retos, casillas editables, feedback, tarjetas y progreso.
+- `guide-cards.css`: tarjetas de las guías educativas en la portada.
+- `resources.css`: sistema visual compartido por las cinco páginas educativas.
 - `script.js`: datos estructurados, navegación, año dinámico y revelado progresivo.
 - `game.js`: catálogo de retos, construcción y edición de cuadrículas, comprobación de palabras y persistencia local por reto.
 - `feedback.js`: diagnóstico de intentos, pistas graduales y explicaciones educativas de sesión.
 - `game-accessibility.js`: contexto ARIA dinámico, nombres accesibles, estados de casillas y retorno de foco del menú.
+- `como-resolver-crucigramas.html`, `tipos-de-pistas-crucigramas.html`, `crucigramas-para-principiantes.html`, `estrategias-crucigramas.html`, `vocabulario-y-crucigramas.html`: recursos educativos indexables.
 - `privacy.html`: política de privacidad.
-- `sitemap.xml`: rutas públicas principales.
+- `sitemap.xml`: portada, cinco guías y privacidad.
 - `.nojekyll`: publicación estática directa mediante GitHub Pages.
 
-Las dependencias propias de la interfaz (`components.css`, `game.js`, `feedback.js` y `game-accessibility.js`) se declaran directamente en `index.html`; `script.js` no crea recursos adicionales durante la carga salvo los datos estructurados JSON-LD.
+Las dependencias propias de la interfaz del juego (`components.css`, `guide-cards.css`, `game.js`, `feedback.js` y `game-accessibility.js`) se declaran directamente en `index.html`; las guías solo utilizan `resources.css` y no cargan la lógica del juego.
 
 ## Privacidad
 
-La versión actual no requiere cuenta ni base de datos remota. El reto seleccionado y, para cada desafío, las letras parciales, palabras resueltas, pista activa, casilla seleccionada y mejor marca se conservan únicamente en el navegador mediante `localStorage` para restaurar la experiencia local. Las pistas graduales y la capa de accesibilidad no añaden datos al almacenamiento persistente.
+La versión actual no requiere cuenta ni base de datos remota. El reto seleccionado y, para cada desafío, las letras parciales, palabras resueltas, pista activa, casilla seleccionada y mejor marca se conservan únicamente en el navegador mediante `localStorage` para restaurar la experiencia local. Las pistas graduales, la capa de accesibilidad y las páginas educativas no añaden datos al almacenamiento persistente.
 
 ## Sitio
 
