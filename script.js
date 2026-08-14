@@ -1,4 +1,27 @@
 (() => {
+  const structuredData = {
+    '@context': 'https://schema.org',
+    '@type': 'WebApplication',
+    '@id': 'https://neuronova-apps.github.io/crucilux-app/#app',
+    name: 'Crucilux',
+    url: 'https://neuronova-apps.github.io/crucilux-app/',
+    description: 'Aplicación de crucigramas y retos de palabras orientada a ejercitar vocabulario, memoria, razonamiento verbal y atención.',
+    applicationCategory: 'GameApplication',
+    operatingSystem: 'Web',
+    inLanguage: 'es-PE',
+    applicationSuite: 'Neuronova Apps',
+    featureList: ['Crucigramas progresivos', 'Retos de vocabulario', 'Ejercitación verbal'],
+    isPartOf: {'@id': 'https://neuronova-apps.github.io/#website'}
+  };
+
+  if (!document.querySelector('script[data-neuronova-schema="true"]')) {
+    const schema = document.createElement('script');
+    schema.type = 'application/ld+json';
+    schema.dataset.neuronovaSchema = 'true';
+    schema.textContent = JSON.stringify(structuredData);
+    document.head.appendChild(schema);
+  }
+
   const menu = document.querySelector('.menu-button');
   const nav = document.querySelector('.main-nav');
   const year = document.querySelector('#year');
