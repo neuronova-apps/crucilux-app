@@ -54,7 +54,8 @@
   function syncClues() {
     document.querySelectorAll('.clue').forEach(button => {
       const group = button.closest('.clue-group');
-      const direction = text(group?.querySelector('.clue-label')).replace(/s$/i, '').toLowerCase();
+      const groupLabel = text(group?.querySelector('.clue-label')).toLowerCase();
+      const direction = groupLabel.startsWith('vertical') ? 'vertical' : 'horizontal';
       const spans = button.querySelectorAll('span');
       const number = text(spans[0]);
       const clue = text(spans[1]);
