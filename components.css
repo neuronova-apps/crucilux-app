@@ -48,9 +48,12 @@
 .cell.selected,.cell:focus-within{border-color:var(--cyan);box-shadow:0 0 0 2px rgba(101,221,255,.16)}
 .cell.solved{background:rgba(108,231,176,.1);border-color:rgba(108,231,176,.28)}
 .cell.active-word.solved{background:rgba(108,231,176,.13)}
+.cell.review{border-color:rgba(255,157,157,.62);background:rgba(255,157,157,.09);box-shadow:inset 0 0 0 1px rgba(255,157,157,.12)}
+.cell.review.selected,.cell.review:focus-within{box-shadow:0 0 0 2px rgba(255,157,157,.2)}
 .cell-number{position:absolute;top:2px;left:5px;z-index:2;color:#8fa2b7;font-size:.52rem;font-weight:850;line-height:1;pointer-events:none}
 .cell-input{width:100%;height:100%;min-width:0;padding:5px;border:0;outline:0;background:transparent;color:var(--text);font:900 1.25rem/1 Inter,system-ui,-apple-system,"Segoe UI",sans-serif;text-align:center;text-transform:uppercase;caret-color:var(--cyan)}
 .cell-input[readonly]{color:var(--green);cursor:default}
+.cell.review .cell-input{color:#ffd0d0}
 .game-message{text-align:center;color:var(--muted)}
 .game-message.ok{color:var(--green)}
 .game-message.error{color:#ff9d9d}
@@ -62,7 +65,19 @@
 .answer-box{margin-top:24px;padding-top:20px;border-top:1px solid var(--line)}
 .board-entry-note{margin:0 0 12px;color:#8fa2b7;font-size:.78rem}
 .answer-actions{display:flex;gap:8px;flex-wrap:wrap}
-.answer-actions .button{flex:1;min-width:145px}
+.answer-actions .button{flex:1;min-width:125px}
+.learning-feedback{margin-top:14px;padding:14px 15px;border:1px solid var(--line);border-radius:14px;background:rgba(255,255,255,.022)}
+.learning-feedback strong,.learning-feedback p{display:block}
+.learning-feedback strong{margin-bottom:4px;font-size:.78rem;letter-spacing:.02em}
+.learning-feedback p{margin:0;color:#91a5b9;font-size:.77rem;line-height:1.55}
+.learning-feedback.hint{border-color:rgba(178,141,255,.28);background:rgba(178,141,255,.055)}
+.learning-feedback.hint strong{color:var(--violet)}
+.learning-feedback.tip{border-color:rgba(101,221,255,.24);background:rgba(101,221,255,.045)}
+.learning-feedback.tip strong{color:var(--cyan)}
+.learning-feedback.review{border-color:rgba(255,157,157,.28);background:rgba(255,157,157,.045)}
+.learning-feedback.review strong{color:#ffb6b6}
+.learning-feedback.success{border-color:rgba(108,231,176,.28);background:rgba(108,231,176,.05)}
+.learning-feedback.success strong{color:var(--green)}
 .method-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
 .method-card{padding:22px}
 .method-card>span{color:var(--cyan);font-size:.72rem;font-weight:850}
