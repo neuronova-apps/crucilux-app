@@ -27,13 +27,16 @@ La versión actual incluye:
 - explicación breve del concepto después de resolver una palabra;
 - fijación de letras cuando una palabra se resuelve correctamente;
 - navegación por casillas con flechas y borrado mediante `Backspace` o `Delete`;
+- contexto ARIA dinámico para retos, pistas y tablero;
+- retorno de foco al botón del menú móvil al cerrarlo con `Escape`;
+- foco visible reforzado para enlaces y botones;
 - progreso independiente por reto;
 - persistencia local de letras parciales, palabras resueltas, pista activa, casilla seleccionada, mejor resultado y reto seleccionado mediante `localStorage`;
 - restauración del avance después de recargar en el mismo navegador;
 - migración compatible desde los formatos anteriores;
 - funcionamiento en memoria si `localStorage` no está disponible;
 - diseño responsive;
-- skip link, controles HTML nativos, mensajes mediante `aria-live` y soporte para `prefers-reduced-motion` como base de accesibilidad;
+- skip link, controles HTML nativos, regiones de estado mediante `aria-live` y soporte para `prefers-reduced-motion`;
 - política de privacidad y sitemap.
 
 No existen todavía niveles adaptativos, generación dinámica de crucigramas, un sistema de pistas basado en análisis avanzado del tablero ni validación formal de accesibilidad. Estas capacidades no deben considerarse disponibles hasta estar implementadas y verificadas.
@@ -81,10 +84,13 @@ Las casillas útiles son campos de una sola letra. La cuadrícula marca visualme
 
 En teclado:
 
+- `Tab` recorre los retos, pistas y controles externos del juego;
+- seleccionar un reto o una pista lleva el foco a una casilla útil del tablero;
 - las flechas desplazan la selección por casillas ocupadas adyacentes;
 - `Backspace` borra la casilla actual o retrocede dentro de la palabra activa si está vacía;
 - `Delete` borra la casilla actual;
-- `Enter` comprueba la palabra activa.
+- `Enter` comprueba la palabra activa sin sacar el foco del tablero;
+- `Escape` cierra el menú móvil cuando está abierto y devuelve el foco al botón que lo controla.
 
 El botón **Borrar palabra** elimina las letras editables de la palabra activa, pero conserva cualquier casilla compartida que ya haya quedado fijada por otra palabra resuelta.
 
@@ -130,31 +136,38 @@ Si `localStorage` no está disponible o el contenido almacenado no puede interpr
 
 ## Accesibilidad
 
-La versión actual incorpora una base de accesibilidad formada por estructura semántica, enlace de salto al contenido, controles nativos, mensajes de estado con `aria-live` y reducción de movimiento mediante `prefers-reduced-motion`.
+La versión actual incorpora una capa específica de accesibilidad para el juego, además de la estructura semántica general, el enlace de salto al contenido, controles nativos, reducción de movimiento y foco visible.
 
-El selector de retos y las pistas utilizan botones reales y exponen el elemento activo mediante `aria-pressed`. El tablero declara una cuadrícula 5 × 5; cada casilla ocupada informa fila, columna, letra actual, si está resuelta y los números/direcciones de las pistas a las que pertenece. Solo la casilla seleccionada permanece en el orden de tabulación y el desplazamiento principal dentro del tablero se realiza con flechas.
+El selector de retos utiliza botones con `aria-pressed` y nombres accesibles que incluyen número, categoría, progreso y estado seleccionado. Cada reto expone mediante `aria-controls` los elementos principales que actualiza.
 
-Después de un intento completo incorrecto, las casillas que necesitan revisión reciben `aria-invalid="true"` además del estado visual correspondiente. El panel educativo usa `aria-live="polite"` para comunicar pistas y explicaciones sin sustituir el mensaje principal del juego.
+Las pistas horizontales y verticales se agrupan semánticamente. Cada botón de pista comunica número, dirección, texto, si está resuelto y si corresponde a la palabra activa. Las pistas también identifican el tablero y las regiones de feedback que controlan.
 
-Esta base no se presenta como certificación WCAG ni como sustituto de una auditoría formal. El flujo de foco general, menú móvil y pruebas con tecnologías de asistencia se reforzarán en una etapa específica de accesibilidad.
+El tablero declara una cuadrícula 5 × 5 con `aria-rowcount` y `aria-colcount`. Cada casilla ocupada informa fila, columna, letra actual, estado editable/resuelto y las pistas a las que pertenece. La capa `game-accessibility.js` mantiene sincronizados `aria-selected`, `aria-readonly` y `aria-invalid`, y añade el contexto de la pista activa al nombre accesible del tablero.
+
+Solo la casilla seleccionada permanece en el orden de tabulación; el desplazamiento interno usa flechas. Las teclas disponibles en una casilla también se exponen mediante `aria-keyshortcuts`. Las regiones `gameMessage` y `learningFeedback` funcionan como estados `aria-live="polite"` y `aria-atomic="true"`.
+
+El menú móvil actualiza su nombre entre **Abrir menú de navegación** y **Cerrar menú de navegación**. Si se cierra con `Escape`, el foco vuelve al botón del menú. Los enlaces y botones disponen además de un indicador `:focus-visible` explícito.
+
+Estas mejoras no se presentan como certificación WCAG ni sustituyen pruebas manuales con lectores de pantalla, ampliación, alto contraste u otras tecnologías de asistencia. Esa validación formal sigue siendo una tarea posterior.
 
 ## Arquitectura
 
 - `index.html`: estructura semántica, selector de retos, instrucciones del tablero, pistas, controles de comprobación y panel educativo.
-- `styles.css`: identidad base, layout general, navegación, tipografía y comportamiento responsive.
+- `styles.css`: identidad base, layout general, navegación, foco visible, tipografía y comportamiento responsive.
 - `components.css`: órbita, selector de retos, casillas editables, feedback, tarjetas y progreso.
 - `script.js`: datos estructurados, navegación, año dinámico y revelado progresivo.
 - `game.js`: catálogo de retos, construcción y edición de cuadrículas, comprobación de palabras y persistencia local por reto.
 - `feedback.js`: diagnóstico de intentos, pistas graduales y explicaciones educativas de sesión.
+- `game-accessibility.js`: contexto ARIA dinámico, nombres accesibles, estados de casillas y retorno de foco del menú.
 - `privacy.html`: política de privacidad.
 - `sitemap.xml`: rutas públicas principales.
 - `.nojekyll`: publicación estática directa mediante GitHub Pages.
 
-Las dependencias propias de la interfaz (`components.css`, `game.js` y `feedback.js`) se declaran directamente en `index.html`; `script.js` no crea recursos adicionales durante la carga salvo los datos estructurados JSON-LD.
+Las dependencias propias de la interfaz (`components.css`, `game.js`, `feedback.js` y `game-accessibility.js`) se declaran directamente en `index.html`; `script.js` no crea recursos adicionales durante la carga salvo los datos estructurados JSON-LD.
 
 ## Privacidad
 
-La versión actual no requiere cuenta ni base de datos remota. El reto seleccionado y, para cada desafío, las letras parciales, palabras resueltas, pista activa, casilla seleccionada y mejor marca se conservan únicamente en el navegador mediante `localStorage` para restaurar la experiencia local. Las pistas graduales y el feedback educativo no añaden datos al almacenamiento persistente.
+La versión actual no requiere cuenta ni base de datos remota. El reto seleccionado y, para cada desafío, las letras parciales, palabras resueltas, pista activa, casilla seleccionada y mejor marca se conservan únicamente en el navegador mediante `localStorage` para restaurar la experiencia local. Las pistas graduales y la capa de accesibilidad no añaden datos al almacenamiento persistente.
 
 ## Sitio
 
