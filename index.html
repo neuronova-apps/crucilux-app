@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Crucilux es un MVP web de retos de palabras con un mini crucigrama funcional de tres palabras para practicar vocabulario y razonamiento verbal.">
+  <meta name="description" content="Crucilux es un MVP web con tres retos de crucigrama y nueve palabras para practicar vocabulario, asociación de conceptos y razonamiento verbal.">
   <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1">
   <meta name="application-name" content="Crucilux">
   <meta name="theme-color" content="#06101d">
@@ -12,7 +12,7 @@
   <meta property="og:locale" content="es_PE">
   <meta property="og:site_name" content="Neuronova Apps">
   <meta property="og:title" content="Crucilux | Crucigramas y retos de palabras">
-  <meta property="og:description" content="Prueba un mini crucigrama funcional de tres palabras y ejercita vocabulario, asociación de conceptos y razonamiento verbal.">
+  <meta property="og:description" content="Resuelve tres retos de palabras con progreso local independiente y nueve conceptos distribuidos por categorías.">
   <meta property="og:url" content="https://neuronova-apps.github.io/crucilux-app/">
   <meta property="og:image" content="https://neuronova-apps.github.io/crucilux-app/favicon.svg">
   <meta property="og:image:type" content="image/svg+xml">
@@ -22,7 +22,7 @@
   <link rel="canonical" href="https://neuronova-apps.github.io/crucilux-app/">
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="Crucilux | Crucigramas y retos de palabras">
-  <meta name="twitter:description" content="Un reto inicial de tres palabras para practicar vocabulario y razonamiento verbal directamente en el navegador.">
+  <meta name="twitter:description" content="Tres retos de crucigrama y nueve palabras para practicar vocabulario directamente en el navegador.">
   <meta name="twitter:image" content="https://neuronova-apps.github.io/crucilux-app/favicon.svg">
   <meta name="twitter:image:alt" content="Símbolo de Crucilux">
   <title>Crucilux | Crucigramas y retos de palabras</title>
@@ -59,14 +59,14 @@
         <div class="hero-copy reveal">
           <p class="eyebrow"><span class="pulse-dot" aria-hidden="true"></span> MVP web funcional · Palabras · lógica · concentración</p>
           <h1>Conecta pistas. <span>Descubre palabras.</span></h1>
-          <p class="lead">Crucilux ofrece un primer reto web de crucigrama: lee tres pistas, relaciona conceptos y completa las palabras directamente en el navegador. La experiencia actual es un MVP funcional en desarrollo activo y servirá como base para futuros retos y categorías.</p>
+          <p class="lead">Crucilux ofrece tres retos web de palabras con categorías distintas. Selecciona un crucigrama, interpreta sus pistas y completa nueve conceptos en total mientras el navegador conserva el progreso de cada reto por separado.</p>
           <div class="hero-actions">
-            <a class="button primary" href="#jugar">Empezar reto <span aria-hidden="true">→</span></a>
+            <a class="button primary" href="#jugar">Elegir reto <span aria-hidden="true">→</span></a>
             <a class="button ghost" href="#como-funciona">Conocer Crucilux</a>
           </div>
           <div class="hero-metrics" aria-label="Características actuales">
-            <div><strong>01</strong><span>Reto inicial</span></div>
-            <div><strong>03</strong><span>Palabras por resolver</span></div>
+            <div><strong>03</strong><span>Retos disponibles</span></div>
+            <div><strong>09</strong><span>Palabras en total</span></div>
             <div><strong>A11Y</strong><span>Base de accesibilidad</span></div>
           </div>
         </div>
@@ -98,30 +98,41 @@
     <section id="jugar" class="section play-section">
       <div class="container">
         <div class="section-heading reveal">
-          <div><p class="eyebrow">Reto inicial</p><h2>Completa el mini crucigrama.</h2></div>
-          <p>Selecciona una pista y escribe la respuesta. Este módulo funciona completamente en tu navegador y guarda localmente las palabras resueltas, la pista activa y tu mejor resultado para que puedas continuar después de recargar.</p>
+          <div><p class="eyebrow">Retos disponibles</p><h2>Elige un crucigrama y continúa a tu ritmo.</h2></div>
+          <p>Los tres retos funcionan directamente en el navegador. Crucilux guarda de forma independiente las palabras resueltas, la pista activa y la mejor marca de cada desafío para restaurarlos después de recargar.</p>
+        </div>
+
+        <div class="challenge-selector reveal" role="group" aria-label="Seleccionar reto de Crucilux">
+          <button class="challenge-option active" type="button" data-challenge="cotidianas" aria-pressed="true">
+            <span class="challenge-number">01</span><strong>Palabras cotidianas</strong><small>Inicio · 3 palabras</small><span class="challenge-status">0/3</span>
+          </button>
+          <button class="challenge-option" type="button" data-challenge="naturaleza" aria-pressed="false">
+            <span class="challenge-number">02</span><strong>Naturaleza</strong><small>Cielo, agua y tierra · 3 palabras</small><span class="challenge-status">0/3</span>
+          </button>
+          <button class="challenge-option" type="button" data-challenge="lenguaje" aria-pressed="false">
+            <span class="challenge-number">03</span><strong>Lenguaje e ideas</strong><small>Lectura y expresión · 3 palabras</small><span class="challenge-status">0/3</span>
+          </button>
         </div>
 
         <div class="game-layout reveal">
           <section class="game-board-panel" aria-labelledby="game-title">
             <div class="game-toolbar">
-              <div><p class="game-kicker">Reto 1 · Inicio</p><h3 id="game-title">Palabras cotidianas</h3></div>
-              <button id="resetGame" class="button ghost" type="button">Reiniciar</button>
+              <div><p id="gameKicker" class="game-kicker">Reto 1 · Inicio</p><h3 id="game-title">Palabras cotidianas</h3><p id="challengeSummary" class="game-summary">Tres conceptos breves y familiares para comenzar.</p></div>
+              <button id="resetGame" class="button ghost" type="button">Reiniciar reto</button>
             </div>
 
-            <div id="crossword" class="crossword" role="grid" aria-label="Mini crucigrama de Crucilux"></div>
+            <div id="crossword" class="crossword" role="grid" aria-label="Crucigrama activo de Crucilux"></div>
             <p id="gameMessage" class="game-message" aria-live="polite">Selecciona una pista para comenzar.</p>
           </section>
 
-          <aside class="clues-panel" aria-label="Pistas del crucigrama">
+          <aside class="clues-panel" aria-label="Pistas del crucigrama activo">
             <div class="clue-group">
               <p class="clue-label">Horizontales</p>
-              <button class="clue active" type="button" data-word="SOL"><span>1</span><span>Estrella que ilumina nuestro planeta.</span></button>
-              <button class="clue" type="button" data-word="MAR"><span>2</span><span>Gran extensión de agua salada.</span></button>
+              <div id="acrossClues"></div>
             </div>
             <div class="clue-group">
               <p class="clue-label">Verticales</p>
-              <button class="clue" type="button" data-word="LUZ"><span>3</span><span>Hace posible que podamos ver.</span></button>
+              <div id="downClues"></div>
             </div>
             <div class="answer-box">
               <label for="answerInput">Tu respuesta</label>
@@ -135,25 +146,25 @@
     <section id="como-funciona" class="section method-section">
       <div class="container">
         <div class="section-heading reveal">
-          <div><p class="eyebrow">Experiencia</p><h2>Un reto breve, una habilidad a la vez.</h2></div>
-          <p>La versión actual permite completar un reto inicial de tres palabras. La estructura está preparada para crecer más adelante por retos, categorías y tipos de pistas sin presentar esa progresión como disponible antes de implementarla.</p>
+          <div><p class="eyebrow">Experiencia</p><h2>Tres retos, una dinámica sencilla.</h2></div>
+          <p>La progresión actual se organiza por retos y categorías. Cada uno contiene tres respuestas y conserva su avance por separado, sin presentar todavía dificultades adaptativas ni edición directa de letras en el tablero.</p>
         </div>
         <div class="method-grid">
-          <article class="method-card reveal"><span>01</span><h3>Lee</h3><p>Interpreta las tres pistas breves del reto inicial.</p></article>
-          <article class="method-card reveal"><span>02</span><h3>Relaciona</h3><p>Activa vocabulario y razonamiento verbal antes de responder.</p></article>
-          <article class="method-card reveal"><span>03</span><h3>Completa</h3><p>Comprueba cada palabra y observa cómo se construye progresivamente el tablero.</p></article>
-          <article class="method-card reveal"><span>04</span><h3>Continúa</h3><p>Las palabras resueltas se conservan en este navegador para que puedas retomar el reto después de recargar y comparar tu avance con la mejor marca local.</p></article>
+          <article class="method-card reveal"><span>01</span><h3>Elige</h3><p>Selecciona Palabras cotidianas, Naturaleza o Lenguaje e ideas.</p></article>
+          <article class="method-card reveal"><span>02</span><h3>Relaciona</h3><p>Interpreta la pista y activa vocabulario y razonamiento verbal.</p></article>
+          <article class="method-card reveal"><span>03</span><h3>Completa</h3><p>Comprueba la palabra y observa cómo aparece dentro del crucigrama activo.</p></article>
+          <article class="method-card reveal"><span>04</span><h3>Continúa</h3><p>Cambia de reto cuando quieras: el progreso independiente queda guardado en este navegador.</p></article>
         </div>
       </div>
     </section>
 
     <section id="progreso" class="section progress-section">
       <div class="container progress-panel reveal">
-        <div><p class="eyebrow">Tu progreso</p><h2>Un reto pequeño, una marca clara.</h2><p>Crucilux conserva localmente las palabras resueltas del reto actual y tu mejor resultado. Si recargas esta página en el mismo navegador, el tablero recupera el avance guardado. Reiniciar borra la partida actual, pero mantiene la mejor marca.</p></div>
+        <div><p class="eyebrow">Tu progreso</p><h2>Cada reto conserva su propia marca.</h2><p>Los indicadores muestran el desafío seleccionado. Cambiar de categoría no borra el anterior; al volver, Crucilux recupera sus palabras resueltas y su mejor resultado. Reiniciar afecta únicamente al reto activo.</p></div>
         <div class="progress-stats">
-          <article><span>Palabras acertadas · partida</span><strong id="solvedCount">0</strong></article>
-          <article><span>Mejor resultado · local</span><strong id="bestScore">0/3</strong></article>
-          <article><span>Estado · partida</span><strong id="progressState">Comenzar</strong></article>
+          <article><span>Palabras acertadas · reto</span><strong id="solvedCount">0/3</strong></article>
+          <article><span>Mejor resultado · reto</span><strong id="bestScore">0/3</strong></article>
+          <article><span>Estado · reto</span><strong id="progressState">Comenzar</strong></article>
         </div>
       </div>
     </section>
@@ -161,7 +172,7 @@
 
   <footer class="site-footer">
     <div class="container footer-grid">
-      <div><a class="brand" href="#inicio"><span class="brand-symbol" aria-hidden="true">CR</span><span class="brand-copy"><strong>Crucilux</strong><span>Neuronova Apps</span></span></a><p>Primer reto web de palabras de Crucilux: tres pistas para practicar vocabulario y razonamiento verbal.</p></div>
+      <div><a class="brand" href="#inicio"><span class="brand-symbol" aria-hidden="true">CR</span><span class="brand-copy"><strong>Crucilux</strong><span>Neuronova Apps</span></span></a><p>Tres retos de palabras y nueve respuestas para practicar vocabulario y razonamiento verbal en la web.</p></div>
       <div class="footer-column"><h2>Explorar</h2><a href="#jugar">Jugar</a><a href="#como-funciona">Cómo funciona</a><a href="#progreso">Progreso</a></div>
       <div class="footer-column"><h2>Información</h2><a href="privacy.html">Privacidad</a><a href="https://github.com/neuronova-apps/crucilux-app">GitHub</a><a href="https://neuronova-apps.github.io/">Neuronova Apps</a></div>
     </div>
