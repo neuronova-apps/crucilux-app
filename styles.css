@@ -20,10 +20,26 @@ html {
 body {
   margin: 0;
   min-width: 320px;
+  position: relative;
   background: linear-gradient(180deg,#06101d,#030913);
   color: var(--text);
   font-family: Inter,system-ui,-apple-system,"Segoe UI",sans-serif;
   line-height: 1.6;
+  overflow-x: hidden;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(255,255,255,.018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.018) 1px, transparent 1px);
+  background-size: 52px 52px;
+  mask-image: linear-gradient(to bottom, black, transparent 75%);
+  -webkit-mask-image: linear-gradient(to bottom, black, transparent 75%);
 }
 
 a {
@@ -157,7 +173,17 @@ a {
 }
 
 .hero {
-  padding: 34px 0 38px;
+  padding: 24px 0 28px;
+  position: relative;
+}
+
+.hero::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(101,221,255,.24), transparent);
+  pointer-events: none;
 }
 
 .hero-grid {
@@ -185,8 +211,10 @@ h3 {
 }
 
 h1 {
-  font-size: clamp(2.25rem,4.3vw,4.15rem);
-  margin-bottom: 16px;
+  max-width: 720px;
+  font-size: clamp(2.15rem,4.25vw,4rem);
+  margin-bottom: 15px;
+  line-height: 1.01;
 }
 
 h1 span {
@@ -200,6 +228,12 @@ h2 {
 .lead,
 .section-heading > p {
   color: var(--muted);
+}
+
+.lead {
+  max-width: 700px;
+  font-size: clamp(.94rem,1.3vw,1.05rem);
+  line-height: 1.55;
 }
 
 .button {
@@ -227,7 +261,7 @@ h2 {
   display: flex;
   gap: 12px;
   flex-wrap: wrap;
-  margin-top: 22px;
+  margin-top: 21px;
 }
 
 .section {
@@ -278,6 +312,17 @@ h2 {
     background: #071321;
     border: 1px solid var(--line);
     border-radius: 14px;
+  }
+}
+
+@media (max-width: 700px) {
+  .hero {
+    padding: 20px 0 32px;
+  }
+
+  h1 {
+    font-size: clamp(1.9rem,9vw,3.1rem);
+    line-height: 1.03;
   }
 }
 
