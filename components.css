@@ -25,11 +25,21 @@
 .chip-left{top:76%;left:9%;color:#9cb9ff}
 .cr-core{width:107px;height:107px;z-index:3;display:grid;place-items:center;border:0;border-radius:28px;background:url("favicon.svg") center/contain no-repeat;box-shadow:0 0 42px rgba(101,221,255,.10);transform:rotate(4deg)}
 .cr-core .mini-grid,.cr-core small{display:none}
+.challenge-selector{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:0 0 18px}
+.challenge-option{position:relative;display:grid;gap:3px;min-height:118px;padding:17px 52px 17px 17px;border:1px solid var(--line);border-radius:18px;background:rgba(255,255,255,.025);color:var(--text);text-align:left;font:inherit;cursor:pointer}
+.challenge-option:hover,.challenge-option.active{border-color:rgba(101,221,255,.34);background:rgba(101,221,255,.06)}
+.challenge-option.active{box-shadow:inset 0 0 0 1px rgba(101,221,255,.08)}
+.challenge-number{color:var(--cyan);font-size:.68rem;font-weight:900;letter-spacing:.1em}
+.challenge-option strong{font-size:.98rem}
+.challenge-option small{color:var(--muted);font-size:.72rem}
+.challenge-status{position:absolute;top:14px;right:14px;padding:4px 7px;border:1px solid var(--line);border-radius:9px;color:#91a5b9;font-size:.66rem;font-weight:800}
+.challenge-option.active .challenge-status{border-color:rgba(101,221,255,.25);color:var(--cyan)}
 .game-layout{display:grid;grid-template-columns:1.1fr .7fr;gap:18px}
 .game-board-panel,.clues-panel,.method-card,.progress-panel{border:1px solid var(--line);background:linear-gradient(180deg,rgba(255,255,255,.045),rgba(255,255,255,.018));border-radius:22px}
 .game-board-panel,.clues-panel{padding:20px}
 .game-toolbar{display:flex;justify-content:space-between;gap:16px}
 .game-kicker,.clue-label{margin:0 0 7px;color:var(--cyan);font-size:.7rem;font-weight:850;letter-spacing:.1em;text-transform:uppercase}
+.game-summary{max-width:480px;margin:-4px 0 0;color:var(--muted);font-size:.82rem}
 .crossword{display:grid;grid-template-columns:repeat(5,minmax(44px,62px));gap:5px;justify-content:center;padding:24px 0}
 .cell{aspect-ratio:1;border:1px solid var(--line);border-radius:10px;background:#0a1726;display:grid;place-items:center;font-weight:900;font-size:1.25rem}
 .cell.block{opacity:.22}
@@ -63,6 +73,6 @@
 .footer-column h2{margin:0;font-size:.76rem;text-transform:uppercase}
 .footer-column a{text-decoration:none}
 .footer-bottom{display:flex;justify-content:space-between;padding-top:20px;border-top:1px solid var(--line);color:#687b90;font-size:.74rem}
-@media(max-width:980px){.hero-visual{justify-self:center}.game-layout,.progress-panel{grid-template-columns:1fr}.method-grid{grid-template-columns:repeat(2,1fr)}}
-@media(max-width:700px){.method-grid,.progress-stats,.footer-grid{grid-template-columns:1fr}.answer-row{flex-direction:column}.footer-bottom{flex-direction:column;gap:8px}.crossword{grid-template-columns:repeat(5,minmax(34px,50px))}}
+@media(max-width:980px){.hero-visual{justify-self:center}.challenge-selector{grid-template-columns:1fr}.game-layout,.progress-panel{grid-template-columns:1fr}.method-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:700px){.method-grid,.progress-stats,.footer-grid{grid-template-columns:1fr}.game-toolbar{align-items:flex-start;flex-direction:column}.answer-row{flex-direction:column}.footer-bottom{flex-direction:column;gap:8px}.crossword{grid-template-columns:repeat(5,minmax(34px,50px))}}
 @media(prefers-reduced-motion:reduce){.hero-visual,.cr-orbit-outer,.cr-orbit-inner,.cr-node,.cr-chip{animation:none}}
