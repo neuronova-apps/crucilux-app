@@ -21,12 +21,15 @@
       <section class="section">
         <h2>Datos y almacenamiento</h2>
         <p>La versión actual no requiere crear una cuenta, no utiliza una base de datos remota para el progreso y no incorpora publicidad ni sistemas propios de seguimiento.</p>
-        <p>Para permitir que una persona continúe el reto inicial después de recargar, Crucilux conserva localmente mediante <code>localStorage</code> las palabras ya resueltas, la pista activa y el mejor resultado alcanzado. La estructura también incluye una versión interna del formato guardado.</p>
-        <p>Estos datos permanecen en el navegador y no se envían a una base de datos de Crucilux. Si el almacenamiento local no está disponible o no puede utilizarse, el reto continúa funcionando durante la sesión sin persistencia.</p>
+        <p>Para permitir que una persona continúe cualquiera de los tres retos después de recargar, Crucilux conserva localmente mediante <code>localStorage</code> el reto seleccionado y, para cada desafío, las palabras ya resueltas, la pista activa y la mejor marca alcanzada. La estructura también incluye una versión interna del formato guardado.</p>
+        <p>Estos datos permanecen en el navegador y no se envían a una base de datos de Crucilux. Si el almacenamiento local no está disponible o no puede utilizarse, los retos continúan funcionando durante la sesión sin persistencia.</p>
+
+        <h2>Compatibilidad del progreso</h2>
+        <p>Las versiones anteriores de Crucilux almacenaban únicamente el reto inicial. Al leer esos datos, la versión actual los asigna al reto <strong>Palabras cotidianas</strong>; los retos <strong>Naturaleza</strong> y <strong>Lenguaje e ideas</strong> comienzan sin progreso previo.</p>
 
         <h2>Retención y reinicio</h2>
-        <p>El botón <strong>Reiniciar</strong> borra las palabras resueltas de la partida actual y vuelve a la pista inicial, pero mantiene la mejor marca histórica. Si no existe una partida ni un mejor resultado, Crucilux no necesita conservar un registro local.</p>
-        <p>La persona usuaria también puede eliminar estos datos borrando el almacenamiento del sitio desde la configuración de su navegador.</p>
+        <p>El botón <strong>Reiniciar reto</strong> borra las palabras resueltas únicamente del desafío visible y vuelve a su primera pista, pero mantiene la mejor marca histórica de ese reto. Cambiar de categoría no elimina el progreso guardado de los demás desafíos.</p>
+        <p>La persona usuaria también puede eliminar todos estos datos borrando el almacenamiento del sitio desde la configuración de su navegador.</p>
 
         <h2>Información personal</h2>
         <p>Crucilux no solicita nombre, correo electrónico, ubicación, contactos ni otros datos personales para utilizar sus funciones actuales.</p>
