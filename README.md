@@ -8,7 +8,7 @@ La propuesta busca ejercitar vocabulario, memoria, atención y razonamiento verb
 
 ## Estado actual
 
-Crucilux se encuentra como **MVP web funcional en desarrollo activo**. La versión disponible incorpora una progresión inicial de **tres retos seleccionables y nueve palabras en total**, con escritura de letras directamente dentro de la cuadrícula.
+Crucilux se encuentra como **MVP web funcional en desarrollo activo**. La versión disponible incorpora una progresión inicial de **tres retos seleccionables y nueve palabras en total**, con escritura de letras directamente dentro de la cuadrícula y ayudas educativas graduales.
 
 La versión actual incluye:
 
@@ -20,6 +20,11 @@ La versión actual incluye:
 - entrada y edición de letras directamente en las casillas del tablero;
 - cruces compartidos entre palabras;
 - comprobación de la palabra activa;
+- feedback distinto para palabras incompletas e intentos incorrectos;
+- conteo de letras colocadas en la posición correcta tras un intento completo fallido;
+- marcado visual y accesible de casillas que necesitan revisión;
+- tres niveles de pista gradual por palabra, sin escribir la respuesta automáticamente;
+- explicación breve del concepto después de resolver una palabra;
 - fijación de letras cuando una palabra se resuelve correctamente;
 - navegación por casillas con flechas y borrado mediante `Backspace` o `Delete`;
 - progreso independiente por reto;
@@ -31,7 +36,7 @@ La versión actual incluye:
 - skip link, controles HTML nativos, mensajes mediante `aria-live` y soporte para `prefers-reduced-motion` como base de accesibilidad;
 - política de privacidad y sitemap.
 
-No existen todavía pistas graduales automáticas, explicaciones educativas tras cada intento, niveles adaptativos ni validación formal de accesibilidad. Estas capacidades no deben considerarse disponibles hasta estar implementadas y verificadas.
+No existen todavía niveles adaptativos, generación dinámica de crucigramas, un sistema de pistas basado en análisis avanzado del tablero ni validación formal de accesibilidad. Estas capacidades no deben considerarse disponibles hasta estar implementadas y verificadas.
 
 ## Retos disponibles
 
@@ -68,8 +73,9 @@ Cada reto sigue este flujo:
 3. escribir una letra directamente en cada casilla de la palabra activa;
 4. aprovechar las letras compartidas en los cruces;
 5. comprobar la palabra activa;
-6. fijar sus letras cuando la respuesta es correcta;
-7. continuar con las demás pistas.
+6. revisar el feedback o solicitar una pista gradual si todavía no encaja;
+7. fijar sus letras cuando la respuesta es correcta;
+8. leer una explicación breve y continuar con las demás pistas.
 
 Las casillas útiles son campos de una sola letra. La cuadrícula marca visualmente la palabra activa y la casilla seleccionada. Las casillas pertenecientes a una palabra ya resuelta pasan a ser de solo lectura para conservar los cruces correctos.
 
@@ -81,6 +87,24 @@ En teclado:
 - `Enter` comprueba la palabra activa.
 
 El botón **Borrar palabra** elimina las letras editables de la palabra activa, pero conserva cualquier casilla compartida que ya haya quedado fijada por otra palabra resuelta.
+
+## Feedback y pistas graduales
+
+`feedback.js` complementa la lógica principal sin modificar la solución ni el almacenamiento del juego.
+
+Cuando se comprueba una palabra:
+
+- si faltan letras, indica cuántas casillas están vacías;
+- si todas las casillas están completas pero la palabra es incorrecta, informa cuántas letras están en la posición correcta y marca las casillas que necesitan revisión;
+- si la palabra es correcta, muestra una explicación breve de por qué el concepto encaja con la pista.
+
+El control **Pista gradual** ofrece hasta tres niveles por palabra durante la sesión:
+
+1. asociación semántica adicional;
+2. letra inicial;
+3. letra final.
+
+Las pistas no escriben letras, no incrementan el progreso y no marcan palabras como resueltas. El nivel de pista mostrado y el feedback visual son estados temporales de interfaz y no se guardan en `localStorage`.
 
 ## Progreso local
 
@@ -110,24 +134,27 @@ La versión actual incorpora una base de accesibilidad formada por estructura se
 
 El selector de retos y las pistas utilizan botones reales y exponen el elemento activo mediante `aria-pressed`. El tablero declara una cuadrícula 5 × 5; cada casilla ocupada informa fila, columna, letra actual, si está resuelta y los números/direcciones de las pistas a las que pertenece. Solo la casilla seleccionada permanece en el orden de tabulación y el desplazamiento principal dentro del tablero se realiza con flechas.
 
+Después de un intento completo incorrecto, las casillas que necesitan revisión reciben `aria-invalid="true"` además del estado visual correspondiente. El panel educativo usa `aria-live="polite"` para comunicar pistas y explicaciones sin sustituir el mensaje principal del juego.
+
 Esta base no se presenta como certificación WCAG ni como sustituto de una auditoría formal. El flujo de foco general, menú móvil y pruebas con tecnologías de asistencia se reforzarán en una etapa específica de accesibilidad.
 
 ## Arquitectura
 
-- `index.html`: estructura semántica, selector de retos, instrucciones del tablero, pistas y controles de comprobación.
+- `index.html`: estructura semántica, selector de retos, instrucciones del tablero, pistas, controles de comprobación y panel educativo.
 - `styles.css`: identidad base, layout general, navegación, tipografía y comportamiento responsive.
-- `components.css`: órbita, selector de retos, casillas editables, estados del juego, tarjetas y progreso.
+- `components.css`: órbita, selector de retos, casillas editables, feedback, tarjetas y progreso.
 - `script.js`: datos estructurados, navegación, año dinámico y revelado progresivo.
 - `game.js`: catálogo de retos, construcción y edición de cuadrículas, comprobación de palabras y persistencia local por reto.
+- `feedback.js`: diagnóstico de intentos, pistas graduales y explicaciones educativas de sesión.
 - `privacy.html`: política de privacidad.
 - `sitemap.xml`: rutas públicas principales.
 - `.nojekyll`: publicación estática directa mediante GitHub Pages.
 
-Las dependencias propias de la interfaz (`components.css` y `game.js`) se declaran directamente en `index.html`; `script.js` no crea recursos adicionales durante la carga salvo los datos estructurados JSON-LD.
+Las dependencias propias de la interfaz (`components.css`, `game.js` y `feedback.js`) se declaran directamente en `index.html`; `script.js` no crea recursos adicionales durante la carga salvo los datos estructurados JSON-LD.
 
 ## Privacidad
 
-La versión actual no requiere cuenta ni base de datos remota. El reto seleccionado y, para cada desafío, las letras parciales, palabras resueltas, pista activa, casilla seleccionada y mejor marca se conservan únicamente en el navegador mediante `localStorage` para restaurar la experiencia local.
+La versión actual no requiere cuenta ni base de datos remota. El reto seleccionado y, para cada desafío, las letras parciales, palabras resueltas, pista activa, casilla seleccionada y mejor marca se conservan únicamente en el navegador mediante `localStorage` para restaurar la experiencia local. Las pistas graduales y el feedback educativo no añaden datos al almacenamiento persistente.
 
 ## Sitio
 
