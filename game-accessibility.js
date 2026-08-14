@@ -2,9 +2,6 @@
   const menu = document.querySelector('.menu-button');
   const nav = document.querySelector('.main-nav');
   const board = document.querySelector('#crossword');
-  const challengeSelector = document.querySelector('.challenge-selector');
-  const acrossClues = document.querySelector('#acrossClues');
-  const downClues = document.querySelector('#downClues');
   const gameTitle = document.querySelector('#game-title');
   const gameMessage = document.querySelector('#gameMessage');
   const learningFeedback = document.querySelector('#learningFeedback');
@@ -133,6 +130,7 @@
       if (menu.getAttribute('aria-expanded') === 'false' && !nav.classList.contains('open')) {
         menu.focus();
       }
+      scheduleSync();
     });
   }, true);
 
@@ -142,7 +140,7 @@
     childList: true,
     characterData: true,
     attributes: true,
-    attributeFilter: ['class', 'aria-pressed', 'aria-selected', 'aria-readonly', 'aria-invalid', 'tabindex', 'readonly']
+    attributeFilter: ['class', 'aria-pressed', 'aria-expanded', 'tabindex', 'readonly']
   });
 
   document.addEventListener('click', scheduleSync);
