@@ -23,11 +23,8 @@
 .chip-top{top:0;left:50%}
 .chip-right{top:76%;left:91%}
 .chip-left{top:76%;left:9%;color:#9cb9ff}
-.cr-core{width:107px;height:107px;z-index:3;display:grid;place-items:center;align-content:center;gap:7px;border:1px solid rgba(101,221,255,.34);border-radius:28px;background:linear-gradient(145deg,#142d43,#091626);transform:rotate(4deg)}
-.mini-grid{display:grid;grid-template-columns:repeat(3,17px);gap:2px}
-.mini-grid span{width:17px;height:17px;display:grid;place-items:center;border:1px solid rgba(255,255,255,.12);border-radius:3px;color:#9cb0c5;font-size:.5rem;font-weight:900}
-.mini-grid .active{color:#06101d;background:var(--cyan)}
-.cr-core small{color:var(--muted);font-size:.52rem;letter-spacing:.14em}
+.cr-core{width:107px;height:107px;z-index:3;display:grid;place-items:center;border:0;border-radius:28px;background:url("favicon.svg") center/contain no-repeat;box-shadow:0 0 42px rgba(101,221,255,.10);transform:rotate(4deg)}
+.cr-core .mini-grid,.cr-core small{display:none}
 .game-layout{display:grid;grid-template-columns:1.1fr .7fr;gap:18px}
 .game-board-panel,.clues-panel,.method-card,.progress-panel{border:1px solid var(--line);background:linear-gradient(180deg,rgba(255,255,255,.045),rgba(255,255,255,.018));border-radius:22px}
 .game-board-panel,.clues-panel{padding:20px}
