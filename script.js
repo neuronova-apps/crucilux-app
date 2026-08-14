@@ -5,7 +5,7 @@
     '@id': 'https://neuronova-apps.github.io/crucilux-app/#app',
     name: 'Crucilux',
     url: 'https://neuronova-apps.github.io/crucilux-app/',
-    description: 'MVP web de Crucilux con tres retos de crucigrama, nueve palabras y edición directa de letras en el tablero para practicar vocabulario y razonamiento verbal.',
+    description: 'MVP web de Crucilux con tres retos de crucigrama, nueve palabras, edición directa de letras, feedback educativo y pistas graduales para practicar vocabulario y razonamiento verbal.',
     applicationCategory: 'GameApplication',
     operatingSystem: 'Web',
     inLanguage: 'es-PE',
@@ -15,6 +15,7 @@
       'Nueve palabras distribuidas por categorías',
       'Entrada y edición de letras directamente en las casillas',
       'Cruces compartidos y comprobación de la palabra activa',
+      'Feedback de intentos y pistas graduales por palabra',
       'Progreso parcial y mejor resultado guardados por reto'
     ],
     isPartOf: {'@id': 'https://neuronova-apps.github.io/#website'}
