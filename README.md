@@ -16,19 +16,35 @@ La versión actual incluye:
 - hero orbital temático de Crucilux;
 - un mini crucigrama funcional de tres palabras: `SOL`, `MAR` y `LUZ`;
 - selección de pistas y comprobación de respuestas completas;
-- visualización de palabras acertadas y estado durante la sesión actual;
-- conservación únicamente del mejor resultado mediante `localStorage` entre recargas;
+- visualización de palabras acertadas y estado de la partida actual;
+- persistencia local de palabras resueltas, pista activa y mejor resultado mediante `localStorage`;
+- restauración del avance después de recargar en el mismo navegador;
+- compatibilidad con datos locales creados antes de incorporar la persistencia de la partida;
+- funcionamiento en memoria si `localStorage` no está disponible;
 - diseño responsive;
 - skip link, controles HTML nativos, mensajes mediante `aria-live` y soporte para `prefers-reduced-motion` como base de accesibilidad;
 - política de privacidad y sitemap.
 
-No existen todavía varios niveles o retos seleccionables, persistencia de la partida actual, escritura letra por letra dentro del tablero ni validación formal de accesibilidad. Estas capacidades no deben considerarse disponibles hasta estar implementadas y verificadas.
+No existen todavía varios niveles o retos seleccionables, escritura letra por letra dentro del tablero ni validación formal de accesibilidad. Estas capacidades no deben considerarse disponibles hasta estar implementadas y verificadas.
 
 ## Progreso local
 
-Durante una sesión, Crucilux mantiene en memoria las palabras resueltas y actualiza los indicadores **Palabras acertadas** y **Estado**.
+Crucilux utiliza la clave `crucilux-progress-v1` para conservar localmente el estado relevante del reto inicial.
 
-Entre recargas, `localStorage` conserva únicamente el mejor resultado alcanzado en el reto inicial mediante la clave `crucilux-progress-v1`. Las palabras ya resueltas de la sesión no se restauran actualmente después de recargar.
+El formato actual guarda:
+
+- `best`: mejor cantidad de palabras resueltas alcanzada en el reto;
+- `solved`: lista validada de palabras ya resueltas en la partida actual;
+- `active`: pista seleccionada al guardar;
+- `version`: versión interna de la estructura persistida.
+
+Al cargar la página, Crucilux valida los identificadores guardados contra las tres palabras conocidas (`SOL`, `MAR` y `LUZ`). Si encuentra una partida coherente, reconstruye las palabras resueltas, restaura la pista activa y actualiza los indicadores del tablero.
+
+El formato es compatible con el almacenamiento anterior que solo contenía `best`. En ese caso, la mejor marca se mantiene y la partida comienza sin palabras restauradas.
+
+Si `localStorage` no está disponible o el contenido almacenado no puede interpretarse, el juego continúa funcionando durante la sesión sin bloquear la experiencia.
+
+**Reiniciar** elimina las palabras resueltas de la partida actual y vuelve a `SOL` como pista inicial, pero conserva la mejor marca histórica. Si no existe partida ni mejor resultado, no se mantiene un registro local innecesario.
 
 ## Accesibilidad
 
@@ -42,7 +58,7 @@ Esta base no se presenta como certificación WCAG ni como sustituto de una audit
 - `styles.css`: identidad base, layout general, navegación, tipografía y comportamiento responsive.
 - `components.css`: órbita, juego, tarjetas, progreso y componentes específicos.
 - `script.js`: datos estructurados, navegación, año dinámico y revelado progresivo.
-- `game.js`: lógica del mini crucigrama y mejor resultado local.
+- `game.js`: lógica del mini crucigrama, persistencia de la partida actual y mejor resultado local.
 - `privacy.html`: política de privacidad.
 - `sitemap.xml`: rutas públicas principales.
 - `.nojekyll`: publicación estática directa mediante GitHub Pages.
@@ -51,7 +67,7 @@ Las dependencias propias de la interfaz (`components.css` y `game.js`) se declar
 
 ## Privacidad
 
-La versión actual no requiere cuenta ni base de datos remota. El mejor resultado del reto inicial se conserva únicamente en el navegador mediante `localStorage`.
+La versión actual no requiere cuenta ni base de datos remota. Las palabras resueltas, la pista activa y el mejor resultado del reto inicial se conservan únicamente en el navegador mediante `localStorage` para restaurar la experiencia local.
 
 ## Sitio
 
