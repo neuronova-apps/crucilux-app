@@ -13,7 +13,7 @@
     featureList: [
       'Mini crucigrama de tres palabras',
       'Selección de pistas y comprobación de respuestas',
-      'Mejor resultado guardado localmente'
+      'Partida actual y mejor resultado guardados localmente'
     ],
     isPartOf: {'@id': 'https://neuronova-apps.github.io/#website'}
   };
