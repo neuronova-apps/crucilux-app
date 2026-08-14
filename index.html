@@ -32,6 +32,7 @@
   <script src="script.js" defer></script>
   <script src="game.js" defer></script>
   <script src="feedback.js" defer></script>
+  <script src="game-accessibility.js" defer></script>
 </head>
 <body>
   <a class="skip-link" href="#contenido">Saltar al contenido principal</a>
@@ -68,7 +69,7 @@
           <div class="hero-metrics" aria-label="Características actuales">
             <div><strong>03</strong><span>Retos disponibles</span></div>
             <div><strong>09</strong><span>Palabras en total</span></div>
-            <div><strong>A11Y</strong><span>Base de accesibilidad</span></div>
+            <div><strong>A11Y</strong><span>Teclado y ARIA</span></div>
           </div>
         </div>
 
@@ -122,28 +123,28 @@
               <button id="resetGame" class="button ghost" type="button">Reiniciar reto</button>
             </div>
 
-            <p id="boardInstructions" class="board-instructions">Selecciona una pista o una casilla. Escribe una letra en cada espacio; usa las flechas para desplazarte, Backspace o Delete para borrar y Enter para comprobar la palabra activa. Si necesitas orientación, usa Pista gradual.</p>
-            <div id="crossword" class="crossword" role="grid" aria-label="Crucigrama activo de Crucilux" aria-describedby="boardInstructions"></div>
-            <p id="gameMessage" class="game-message" aria-live="polite">Selecciona una pista para comenzar.</p>
+            <p id="boardInstructions" class="board-instructions">Tab recorre retos, pistas y controles. Dentro del tablero usa las flechas para desplazarte, escribe una letra por casilla, Backspace o Delete para borrar y Enter para comprobar la palabra activa. Si necesitas orientación, usa Pista gradual.</p>
+            <div id="crossword" class="crossword" role="grid" aria-label="Crucigrama activo de Crucilux" aria-describedby="boardInstructions gameMessage"></div>
+            <p id="gameMessage" class="game-message" role="status" aria-live="polite" aria-atomic="true">Selecciona una pista para comenzar.</p>
           </section>
 
           <aside class="clues-panel" aria-label="Pistas del crucigrama activo">
-            <div class="clue-group">
-              <p class="clue-label">Horizontales</p>
+            <div class="clue-group" role="group" aria-labelledby="acrossLabel">
+              <p id="acrossLabel" class="clue-label">Horizontales</p>
               <div id="acrossClues"></div>
             </div>
-            <div class="clue-group">
-              <p class="clue-label">Verticales</p>
+            <div class="clue-group" role="group" aria-labelledby="downLabel">
+              <p id="downLabel" class="clue-label">Verticales</p>
               <div id="downClues"></div>
             </div>
             <div class="answer-box">
               <p class="board-entry-note">La pista seleccionada determina la palabra activa. Completa sus casillas, comprueba tu intento o solicita una ayuda progresiva.</p>
-              <div class="answer-actions">
+              <div class="answer-actions" role="group" aria-label="Controles de la palabra activa">
                 <button id="checkAnswer" class="button primary" type="button">Comprobar palabra</button>
                 <button id="hintWord" class="button ghost" type="button">Pista gradual</button>
                 <button id="clearWord" class="button ghost" type="button">Borrar palabra</button>
               </div>
-              <div id="learningFeedback" class="learning-feedback neutral" aria-live="polite">
+              <div id="learningFeedback" class="learning-feedback neutral" role="status" aria-live="polite" aria-atomic="true">
                 <strong>Ayuda gradual</strong>
                 <p>Comprueba la palabra para recibir orientación sobre tu intento o usa “Pista gradual” cuando necesites una ayuda adicional.</p>
               </div>
