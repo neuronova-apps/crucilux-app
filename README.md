@@ -36,6 +36,8 @@ La versión actual incluye:
 - migración compatible desde los formatos anteriores;
 - funcionamiento en memoria si `localStorage` no está disponible;
 - cinco guías educativas HTML con canonical, `index, follow`, navegación cruzada y acceso a la práctica;
+- tarjeta social dedicada 1200 × 630 en `assets/social/crucilux-social.png`;
+- Open Graph y Twitter Card normalizados con PNG 1200 × 630 y `summary_large_image` en las siete páginas públicas;
 - diseño responsive;
 - skip link, controles HTML nativos, regiones de estado mediante `aria-live` y soporte para `prefers-reduced-motion`;
 - política de privacidad y sitemap con siete URLs públicas.
@@ -128,7 +130,9 @@ Cada guía dispone de:
 - título y descripción propios;
 - canonical absoluto;
 - `robots="index, follow"`;
-- Open Graph/Twitter básico con el activo social provisional actual;
+- Open Graph/Twitter con la tarjeta social dedicada de Crucilux;
+- `og:image:type="image/png"`, dimensiones 1200 × 630 y texto alternativo;
+- `twitter:card="summary_large_image"`;
 - un único `h1`;
 - skip link;
 - navegación cruzada entre las cinco guías;
@@ -138,6 +142,12 @@ Cada guía dispone de:
 La portada presenta estas páginas en la sección **Guías de Crucilux**, cuyo diseño se mantiene en `guide-cards.css`.
 
 Estas páginas son contenido educativo estático. No modifican la partida, no analizan automáticamente el tablero y no convierten las ayudas graduales del juego en un sistema adaptativo.
+
+## Tarjeta social
+
+El activo social compartido es `assets/social/crucilux-social.png`, un PNG de **1200 × 630** diseñado para representar Crucilux como aplicación de crucigramas y retos de palabras.
+
+La portada, las cinco guías educativas y `privacy.html` utilizan el mismo activo mediante Open Graph y Twitter Cards. El favicon continúa reservado para identidad del navegador y ya no se utiliza como imagen social principal.
 
 ## Progreso local
 
@@ -184,6 +194,7 @@ Las guías educativas usan estructura semántica, skip link, foco visible y nave
 - `components.css`: órbita, selector de retos, casillas editables, feedback, tarjetas y progreso.
 - `guide-cards.css`: tarjetas de las guías educativas en la portada.
 - `resources.css`: sistema visual compartido por las cinco páginas educativas.
+- `assets/social/crucilux-social.png`: tarjeta social 1200 × 630 compartida por las páginas públicas.
 - `script.js`: datos estructurados, navegación, año dinámico y revelado progresivo.
 - `game.js`: catálogo de retos, construcción y edición de cuadrículas, comprobación de palabras y persistencia local por reto.
 - `feedback.js`: diagnóstico de intentos, pistas graduales y explicaciones educativas de sesión.
