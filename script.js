@@ -16,6 +16,7 @@
       'Entrada y edición de letras directamente en las casillas',
       'Cruces compartidos y comprobación de la palabra activa',
       'Feedback de intentos y pistas graduales por palabra',
+      'Navegación por teclado y contexto ARIA del tablero',
       'Progreso parcial y mejor resultado guardados por reto'
     ],
     isPartOf: {'@id': 'https://neuronova-apps.github.io/#website'}
