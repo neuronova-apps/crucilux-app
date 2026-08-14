@@ -5,12 +5,16 @@
     '@id': 'https://neuronova-apps.github.io/crucilux-app/#app',
     name: 'Crucilux',
     url: 'https://neuronova-apps.github.io/crucilux-app/',
-    description: 'Aplicación de crucigramas y retos de palabras orientada a ejercitar vocabulario, memoria, razonamiento verbal y atención.',
+    description: 'MVP web de Crucilux con un mini crucigrama funcional de tres palabras para practicar vocabulario y razonamiento verbal.',
     applicationCategory: 'GameApplication',
     operatingSystem: 'Web',
     inLanguage: 'es-PE',
     applicationSuite: 'Neuronova Apps',
-    featureList: ['Crucigramas progresivos', 'Retos de vocabulario', 'Ejercitación verbal'],
+    featureList: [
+      'Mini crucigrama de tres palabras',
+      'Selección de pistas y comprobación de respuestas',
+      'Mejor resultado guardado localmente'
+    ],
     isPartOf: {'@id': 'https://neuronova-apps.github.io/#website'}
   };
 
