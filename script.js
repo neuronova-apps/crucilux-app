@@ -10,6 +10,7 @@
     operatingSystem: 'Web',
     inLanguage: 'es-PE',
     applicationSuite: 'Neuronova Apps',
+    image: 'https://neuronova-apps.github.io/crucilux-app/assets/social/crucilux-social.png',
     featureList: [
       'Tres retos de crucigrama seleccionables',
       'Nueve palabras distribuidas por categorías',
