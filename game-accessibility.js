@@ -7,6 +7,34 @@
   const learningFeedback = document.querySelector('#learningFeedback');
   const answerActions = document.querySelector('.answer-actions');
 
+  function normalizeFooter() {
+    const footer = document.querySelector('.site-footer');
+    if (!footer) return;
+
+    const columns = [...footer.querySelectorAll('.footer-column')];
+    const explore = columns[0];
+    const contact = columns[1];
+    const footerBottom = footer.querySelector('.footer-bottom');
+
+    explore?.querySelector('a[href="privacy/"]')?.remove();
+
+    if (contact) {
+      contact.innerHTML = `
+        <h2>Contacto</h2>
+        <a href="mailto:berm_km@hotmail.com">berm_km@hotmail.com</a>
+        <span>Pucallpa, Ucayali · Perú</span>
+        <span>Proyecto independiente</span>`;
+    }
+
+    if (footerBottom) {
+      footerBottom.innerHTML = `
+        <p>© 2026 Crucilux · Neuronova Apps</p>
+        <p><a href="privacy/">Política de privacidad</a></p>`;
+    }
+  }
+
+  normalizeFooter();
+
   if (!board) return;
 
   let syncQueued = false;
