@@ -83,23 +83,6 @@
     });
   }
 
-  const footerColumns = [...document.querySelectorAll('.site-footer .footer-column')];
-  const exploreColumn = footerColumns.find(column => column.querySelector('h2')?.textContent.trim() === 'Explorar');
-  const contactColumn = footerColumns.find(column => ['Información', 'Contacto'].includes(column.querySelector('h2')?.textContent.trim()));
-  const footerBottom = document.querySelector('.site-footer .footer-bottom');
-
-  if (exploreColumn) {
-    exploreColumn.querySelector('a[href="privacy/"]')?.remove();
-  }
-
-  if (contactColumn) {
-    contactColumn.innerHTML = '<h2>Contacto</h2><a href="mailto:berm_km@hotmail.com">berm_km@hotmail.com</a><span>Pucallpa, Ucayali · Perú</span><span>Proyecto independiente</span>';
-  }
-
-  if (footerBottom) {
-    footerBottom.innerHTML = '<p>© 2026 Crucilux · Neuronova Apps</p><p><a href="privacy/">Política de privacidad</a></p>';
-  }
-
   const items = [...document.querySelectorAll('.reveal')];
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
