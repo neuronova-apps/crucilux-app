@@ -61,6 +61,12 @@
     });
   }
 
+  const footerColumns = [...document.querySelectorAll('.site-footer .footer-column')];
+  const infoColumn = footerColumns.find(column => column.querySelector('h2')?.textContent.trim() === 'Información');
+  if (infoColumn) {
+    infoColumn.innerHTML = '<h2>Contacto</h2><a href="mailto:berm_km@hotmail.com">berm_km@hotmail.com</a><span>Pucallpa, Ucayali · Perú</span><span>Proyecto independiente</span>';
+  }
+
   const items = [...document.querySelectorAll('.reveal')];
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
