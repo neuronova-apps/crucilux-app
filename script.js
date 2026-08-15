@@ -1,4 +1,22 @@
 (() => {
+  const accessibilityCssUrl = 'https://neuronova-apps.github.io/assets/accessibility/accessibility.css';
+  const accessibilityJsUrl = 'https://neuronova-apps.github.io/assets/accessibility/accessibility.js';
+
+  if (!document.querySelector(`link[href="${accessibilityCssUrl}"]`)) {
+    const stylesheet = document.createElement('link');
+    stylesheet.rel = 'stylesheet';
+    stylesheet.href = accessibilityCssUrl;
+    stylesheet.dataset.neuronovaA11y = 'true';
+    document.head.appendChild(stylesheet);
+  }
+
+  if (!document.querySelector(`script[src="${accessibilityJsUrl}"]`)) {
+    const accessibilityScript = document.createElement('script');
+    accessibilityScript.src = accessibilityJsUrl;
+    accessibilityScript.dataset.neuronovaA11y = 'true';
+    document.head.appendChild(accessibilityScript);
+  }
+
   const structuredData = {
     '@context': 'https://schema.org',
     '@type': 'WebApplication',
@@ -44,11 +62,13 @@
     const close = () => {
       nav.classList.remove('open');
       menu.setAttribute('aria-expanded', 'false');
+      menu.setAttribute('aria-label', 'Abrir menú de navegación');
     };
 
     menu.addEventListener('click', () => {
       const open = nav.classList.toggle('open');
       menu.setAttribute('aria-expanded', String(open));
+      menu.setAttribute('aria-label', open ? 'Cerrar menú de navegación' : 'Abrir menú de navegación');
     });
 
     nav.querySelectorAll('a').forEach(link => {
@@ -56,16 +76,28 @@
     });
 
     document.addEventListener('keydown', event => {
-      if (event.key === 'Escape') {
+      if (event.key === 'Escape' && nav.classList.contains('open')) {
         close();
+        menu.focus({preventScroll: true});
       }
     });
   }
 
   const footerColumns = [...document.querySelectorAll('.site-footer .footer-column')];
-  const infoColumn = footerColumns.find(column => column.querySelector('h2')?.textContent.trim() === 'Información');
-  if (infoColumn) {
-    infoColumn.innerHTML = '<h2>Contacto</h2><a href="mailto:berm_km@hotmail.com">berm_km@hotmail.com</a><span>Pucallpa, Ucayali · Perú</span><span>Proyecto independiente</span>';
+  const exploreColumn = footerColumns.find(column => column.querySelector('h2')?.textContent.trim() === 'Explorar');
+  const contactColumn = footerColumns.find(column => ['Información', 'Contacto'].includes(column.querySelector('h2')?.textContent.trim()));
+  const footerBottom = document.querySelector('.site-footer .footer-bottom');
+
+  if (exploreColumn) {
+    exploreColumn.querySelector('a[href="privacy/"]')?.remove();
+  }
+
+  if (contactColumn) {
+    contactColumn.innerHTML = '<h2>Contacto</h2><a href="mailto:berm_km@hotmail.com">berm_km@hotmail.com</a><span>Pucallpa, Ucayali · Perú</span><span>Proyecto independiente</span>';
+  }
+
+  if (footerBottom) {
+    footerBottom.innerHTML = '<p>© 2026 Crucilux · Neuronova Apps</p><p><a href="privacy/">Política de privacidad</a></p>';
   }
 
   const items = [...document.querySelectorAll('.reveal')];
