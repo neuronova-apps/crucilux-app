@@ -23,8 +23,11 @@
 .chip-top{top:0;left:50%}
 .chip-right{top:76%;left:91%}
 .chip-left{top:76%;left:9%;color:#9cb9ff}
-.cr-core{width:107px;height:107px;z-index:3;display:grid;place-items:center;border:0;border-radius:28px;background:url("favicon.svg") center/contain no-repeat;box-shadow:0 0 42px rgba(101,221,255,.10);transform:rotate(4deg)}
-.cr-core .mini-grid,.cr-core small{display:none}
+.cr-core{width:107px;height:107px;position:relative;z-index:3;display:grid;place-items:end center;padding:0 0 10px;overflow:hidden;border:1px solid rgba(101,221,255,.20);border-radius:22px;background:linear-gradient(180deg,rgba(16,34,50,.96),rgba(8,19,31,.98));box-shadow:0 0 0 1px rgba(101,221,255,.05) inset,0 0 30px rgba(101,221,255,.09),0 16px 34px rgba(0,0,0,.34);transform:rotate(-4deg)}
+.cr-core::before{content:"";position:absolute;inset:6px;z-index:0;border:1px solid rgba(101,221,255,.16);border-radius:17px;background:url("favicon.svg") center/112px 112px no-repeat;pointer-events:none}
+.cr-core::after{content:"";position:absolute;inset:0;z-index:0;border-radius:22px;background:radial-gradient(circle at 50% 24%,rgba(101,221,255,.09),transparent 55%),linear-gradient(180deg,rgba(255,255,255,.025),transparent 44%);pointer-events:none}
+.cr-core .mini-grid{display:none}
+.cr-core small{position:relative;z-index:2;display:block;color:#91a6b8;font-size:.42rem;font-weight:800;letter-spacing:.12em;line-height:1;text-shadow:0 1px 5px rgba(0,0,0,.85)}
 .challenge-selector{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:0 0 18px}
 .challenge-option{position:relative;display:grid;gap:3px;min-height:118px;padding:17px 52px 17px 17px;border:1px solid var(--line);border-radius:18px;background:rgba(255,255,255,.025);color:var(--text);text-align:left;font:inherit;cursor:pointer}
 .challenge-option:hover,.challenge-option.active{border-color:rgba(101,221,255,.34);background:rgba(101,221,255,.06)}
