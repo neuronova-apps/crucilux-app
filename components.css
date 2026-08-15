@@ -31,13 +31,3 @@
 @media(max-width:980px){.hero-visual{justify-self:center}.challenge-selector{grid-template-columns:1fr}.game-layout,.progress-panel{grid-template-columns:1fr}.method-grid{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:700px){.method-grid,.progress-stats,.footer-grid{grid-template-columns:1fr}.game-toolbar{align-items:flex-start;flex-direction:column}.answer-actions{flex-direction:column}.footer-bottom{flex-direction:column;gap:8px}.crossword{grid-template-columns:repeat(5,minmax(34px,50px))}.cell-input{font-size:1.05rem}}
 @media(prefers-reduced-motion:reduce){.hero-visual,.cr-orbit-outer,.cr-orbit-inner,.cr-node,.cr-chip{animation:none}.cell{transition:none}}
-
-/* Regla orbital definitiva · Neuronova Apps */
-.hero-grid{gap:clamp(30px,5vw,64px)}.hero-visual{width:min(100%,430px);aspect-ratio:1;justify-self:end}.cr-orbit-outer{width:332px;height:332px;margin:-166px 0 0 -166px}.cr-orbit-inner{width:214px;height:214px;margin:-107px 0 0 -107px}.cr-core{width:107px;height:107px;transform:rotate(-4deg)}
-@media(max-width:900px){.hero-visual{width:min(82vw,390px);justify-self:center}}
-@media(max-width:700px){.hero-grid{gap:30px}.hero-visual{width:min(88vw,340px)}.cr-orbit-outer{width:286px;height:286px;margin:-143px 0 0 -143px}.cr-orbit-inner{width:186px;height:186px;margin:-93px 0 0 -93px}.cr-core{width:96px;height:96px;transform:rotate(-4deg)}}
-
-/* Escala tipográfica maestra · Neuronova Apps */
-:root{--nv-content-max:1180px;--nv-h1:clamp(2.15rem,4.25vw,4rem);--nv-h2:clamp(2rem,3.7vw,3.45rem);--nv-lead:clamp(.94rem,1.3vw,1.05rem);--nv-body:.95rem;--nv-eyebrow:.74rem;--nv-button:46px;--nv-metric-value:1.02rem;--nv-metric-label:.72rem}
-.container{width:min(calc(100% - 36px),var(--nv-content-max));margin-inline:auto}.hero h1{font-size:var(--nv-h1);line-height:1.01;letter-spacing:-.04em}main .section h2,main .section-heading h2{font-size:var(--nv-h2);line-height:1.06;letter-spacing:-.035em}main p{font-size:var(--nv-body);line-height:1.6}.hero .lead{font-size:var(--nv-lead);line-height:1.55}.eyebrow{font-size:var(--nv-eyebrow);line-height:1.2;letter-spacing:.14em}.button,a.button,button.button{min-height:var(--nv-button);font-size:.9rem;line-height:1}:is(.hero-metrics,.metrics,.stats) strong{font-size:var(--nv-metric-value);line-height:1.2}:is(.hero-metrics,.metrics,.stats) span{font-size:var(--nv-metric-label);line-height:1.35}
-@media(max-width:700px){.hero h1{font-size:clamp(1.9rem,9vw,3.1rem);line-height:1.03}main .section h2,main .section-heading h2{font-size:clamp(1.75rem,7.4vw,2.6rem)}main p{font-size:.93rem}.button,a.button,button.button{min-height:46px}:is(.hero-metrics,.metrics,.stats) strong{font-size:.96rem}:is(.hero-metrics,.metrics,.stats) span{font-size:.68rem}}
