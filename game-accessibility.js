@@ -101,8 +101,9 @@
     const activeLabel = activeClue ? activeClue.getAttribute('aria-label') || text(activeClue) : '';
     const title = text(gameTitle) || 'Crucilux';
 
-    board.setAttribute('aria-rowcount', '5');
-    board.setAttribute('aria-colcount', '5');
+    board.setAttribute('role', 'group');
+    board.removeAttribute('aria-rowcount');
+    board.removeAttribute('aria-colcount');
     board.setAttribute('aria-describedby', 'boardInstructions gameMessage');
     board.setAttribute(
       'aria-label',
@@ -114,11 +115,11 @@
       if (!input) return;
 
       const invalid = input.getAttribute('aria-invalid') === 'true';
-      const selected = input.tabIndex === 0 || cell.classList.contains('selected');
-      const readOnly = input.readOnly;
-
-      cell.setAttribute('aria-selected', String(selected));
-      cell.setAttribute('aria-readonly', String(readOnly));
+      cell.removeAttribute('role');
+      cell.removeAttribute('aria-rowindex');
+      cell.removeAttribute('aria-colindex');
+      cell.removeAttribute('aria-selected');
+      cell.removeAttribute('aria-readonly');
       cell.setAttribute('aria-invalid', String(invalid));
       input.setAttribute('aria-invalid', String(invalid));
       input.setAttribute('aria-keyshortcuts', 'ArrowUp ArrowDown ArrowLeft ArrowRight Enter Backspace Delete');
