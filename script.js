@@ -1,6 +1,7 @@
 (() => {
   const accessibilityCssUrl = 'https://neuronova-apps.github.io/assets/accessibility/accessibility.css';
   const accessibilityJsUrl = 'https://neuronova-apps.github.io/assets/accessibility/accessibility.js';
+  const challengeSelectorCssUrl = 'challenge-selector.css';
 
   if (!document.querySelector(`link[href="${accessibilityCssUrl}"]`)) {
     const stylesheet = document.createElement('link');
@@ -8,6 +9,14 @@
     stylesheet.href = accessibilityCssUrl;
     stylesheet.dataset.neuronovaA11y = 'true';
     document.head.appendChild(stylesheet);
+  }
+
+  if (!document.querySelector(`link[href="${challengeSelectorCssUrl}"]`)) {
+    const challengeStylesheet = document.createElement('link');
+    challengeStylesheet.rel = 'stylesheet';
+    challengeStylesheet.href = challengeSelectorCssUrl;
+    challengeStylesheet.dataset.cruciluxChallenges = 'true';
+    document.head.appendChild(challengeStylesheet);
   }
 
   if (!document.querySelector(`script[src="${accessibilityJsUrl}"]`)) {
@@ -81,6 +90,87 @@
         menu.focus({preventScroll: true});
       }
     });
+  }
+
+  const challengeSelector = document.querySelector('.challenge-selector');
+
+  if (challengeSelector) {
+    challengeSelector.id = challengeSelector.id || 'challengeList';
+    challengeSelector.classList.add('challenge-list-scroll');
+    challengeSelector.hidden = true;
+
+    const challengeToggle = document.createElement('button');
+    challengeToggle.className = 'challenge-list-toggle';
+    challengeToggle.type = 'button';
+    challengeToggle.setAttribute('aria-expanded', 'false');
+    challengeToggle.setAttribute('aria-controls', challengeSelector.id);
+
+    const currentLabel = document.createElement('span');
+    currentLabel.className = 'challenge-list-current';
+    const hintLabel = document.createElement('span');
+    hintLabel.className = 'challenge-list-hint';
+    const chevron = document.createElement('span');
+    chevron.className = 'challenge-list-chevron';
+    chevron.setAttribute('aria-hidden', 'true');
+    chevron.textContent = '⌄';
+
+    challengeToggle.append(currentLabel, hintLabel, chevron);
+    challengeSelector.before(challengeToggle);
+
+    const challengeCount = () => challengeSelector.querySelectorAll('.challenge-option').length;
+    const activeTitle = () => challengeSelector.querySelector('.challenge-option.active strong')?.textContent?.trim()
+      || challengeSelector.querySelector('.challenge-option strong')?.textContent?.trim()
+      || 'Seleccionar reto';
+
+    const syncChallengeToggle = () => {
+      const expanded = challengeToggle.getAttribute('aria-expanded') === 'true';
+      const count = challengeCount();
+      const title = activeTitle();
+      currentLabel.textContent = `Reto actual: ${title}`;
+      hintLabel.textContent = expanded
+        ? 'Ocultar lista de retos'
+        : `Ver lista de ${count} ${count === 1 ? 'reto' : 'retos'}`;
+      challengeToggle.setAttribute(
+        'aria-label',
+        `${expanded ? 'Ocultar' : 'Mostrar'} lista de ${count} ${count === 1 ? 'reto' : 'retos'}. Reto actual: ${title}`
+      );
+    };
+
+    const setChallengeListExpanded = expanded => {
+      challengeToggle.setAttribute('aria-expanded', String(expanded));
+      challengeSelector.hidden = !expanded;
+      syncChallengeToggle();
+
+      if (expanded) {
+        requestAnimationFrame(() => {
+          challengeSelector.querySelector('.challenge-option.active')?.scrollIntoView({block: 'nearest'});
+        });
+      }
+    };
+
+    challengeToggle.addEventListener('click', () => {
+      setChallengeListExpanded(challengeToggle.getAttribute('aria-expanded') !== 'true');
+    });
+
+    challengeSelector.addEventListener('click', event => {
+      const option = event.target.closest('.challenge-option');
+      if (!option) return;
+      queueMicrotask(() => {
+        setChallengeListExpanded(false);
+        challengeToggle.focus({preventScroll: true});
+      });
+    });
+
+    const challengeObserver = new MutationObserver(syncChallengeToggle);
+    challengeObserver.observe(challengeSelector, {
+      subtree: true,
+      childList: true,
+      characterData: true,
+      attributes: true,
+      attributeFilter: ['class', 'aria-pressed']
+    });
+
+    syncChallengeToggle();
   }
 
   const items = [...document.querySelectorAll('.reveal')];
