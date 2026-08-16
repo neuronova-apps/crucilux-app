@@ -98,6 +98,7 @@
     challengeSelector.id = challengeSelector.id || 'challengeList';
     challengeSelector.classList.add('challenge-list-scroll');
     challengeSelector.hidden = true;
+    challengeSelector.style.display = 'none';
 
     const challengeToggle = document.createElement('button');
     challengeToggle.className = 'challenge-list-toggle';
@@ -112,7 +113,7 @@
     const chevron = document.createElement('span');
     chevron.className = 'challenge-list-chevron';
     chevron.setAttribute('aria-hidden', 'true');
-    chevron.textContent = '⌄';
+    chevron.textContent = '▾';
 
     challengeToggle.append(currentLabel, hintLabel, chevron);
     challengeSelector.before(challengeToggle);
@@ -139,6 +140,9 @@
     const setChallengeListExpanded = expanded => {
       challengeToggle.setAttribute('aria-expanded', String(expanded));
       challengeSelector.hidden = !expanded;
+      challengeSelector.style.display = expanded ? 'grid' : 'none';
+      challengeSelector.style.maxHeight = expanded ? '350px' : '';
+      challengeSelector.style.overflowY = expanded ? 'auto' : '';
       syncChallengeToggle();
 
       if (expanded) {
