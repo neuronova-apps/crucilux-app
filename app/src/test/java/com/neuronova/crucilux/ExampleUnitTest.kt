@@ -1,4 +1,4 @@
-package com.example.crucilux
+package com.neuronova.crucilux
 
 import org.junit.Test
 

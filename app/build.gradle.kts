@@ -4,13 +4,13 @@ plugins {
 }
 
 android {
-    namespace = "com.example.crucilux"
+    namespace = "com.neuronova.crucilux"
     compileSdk {
         version = release(37)
     }
 
     defaultConfig {
-        applicationId = "com.example.crucilux"
+        applicationId = "com.neuronova.crucilux"
         minSdk = 24
         targetSdk = 37
         versionCode = 1

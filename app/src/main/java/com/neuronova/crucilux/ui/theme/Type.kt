@@ -1,4 +1,4 @@
-package com.example.crucilux.ui.theme
+package com.neuronova.crucilux.ui.theme
 
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle

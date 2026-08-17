@@ -1,4 +1,4 @@
-package com.example.crucilux.ui.theme
+package com.neuronova.crucilux.ui.theme
 
 import androidx.compose.ui.graphics.Color
 

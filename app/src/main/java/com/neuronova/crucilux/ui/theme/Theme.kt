@@ -1,4 +1,4 @@
-package com.example.crucilux.ui.theme
+package com.neuronova.crucilux.ui.theme
 
 import android.app.Activity
 import android.os.Build
