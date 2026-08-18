@@ -26,9 +26,9 @@ sealed class Screen(val route: String) {
     object Progress       : Screen("progress")
     object Settings       : Screen("settings")
     object About          : Screen("about")
-    object GameSetupReady : Screen("game_setup_ready/{category}/{size}/{difficulty}") {
-        fun createRoute(category: String, size: String, difficulty: String): String {
-            return "game_setup_ready/$category/$size/$difficulty"
+    object GameSetupReady : Screen("game_setup_ready/{category}/{size}") {
+        fun createRoute(category: String, size: String): String {
+            return "game_setup_ready/$category/$size"
         }
     }
 }
@@ -77,9 +77,9 @@ fun CruciluxNavGraph(
         }
         composable(Screen.Play.route) {
             PlayScreen(
-                onNavigateToReady = { category, size, difficulty ->
+                onNavigateToReady = { category, size ->
                     navController.navigate(
-                        Screen.GameSetupReady.createRoute(category, size, difficulty)
+                        Screen.GameSetupReady.createRoute(category, size)
                     ) {
                         launchSingleTop = true
                     }
@@ -113,17 +113,14 @@ fun CruciluxNavGraph(
             arguments = listOf(
                 navArgument("category") { type = NavType.StringType },
                 navArgument("size") { type = NavType.StringType },
-                navArgument("difficulty") { type = NavType.StringType },
             ),
         ) { backStackEntry ->
             val category = backStackEntry.arguments?.getString("category") ?: GameConfigProvider.defaultCategory.displayName
             val size = backStackEntry.arguments?.getString("size") ?: GameConfigProvider.defaultSize.label
-            val difficulty = backStackEntry.arguments?.getString("difficulty") ?: GameConfigProvider.defaultDifficulty.displayName
 
             GameSetupReadyScreen(
                 category = category,
                 size = size,
-                difficulty = difficulty,
                 onVolver = {
                     navController.popBackStack()
                 },

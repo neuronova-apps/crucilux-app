@@ -2,40 +2,66 @@ package com.neuronova.crucilux.data
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.MenuBook
-import androidx.compose.material.icons.filled.Dashboard
-import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.AutoStories
+import androidx.compose.material.icons.filled.Category
+import androidx.compose.material.icons.filled.Flag
+import androidx.compose.material.icons.filled.Memory
+import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.Park
+import androidx.compose.material.icons.filled.Pets
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Science
+import androidx.compose.material.icons.filled.Terrain
+import androidx.compose.ui.graphics.vector.ImageVector
+import com.neuronova.crucilux.data.bank.CruciluxBankRepository
 import com.neuronova.crucilux.model.CruciluxCategory
-import com.neuronova.crucilux.model.CruciluxDifficulty
 import com.neuronova.crucilux.model.CruciluxGridSize
 
 /**
  * Proveedor centralizado de configuración para Crucilux.
+ * Deriva las categorías y dimensiones directamente desde el banco maestro validado (v1.28).
  *
- * NOTA DE ARQUITECTURA / INTEGRACIÓN DEL BANCO:
- * 1. Las categorías aquí listadas son EXCLUSIVAMENTE PLACEHOLDERS PROVISIONALES
- *    de interfaz y NO corresponden al contenido final.
- * 2. Están concentradas en este único punto para que, al integrar el archivo
- *    del banco maestro desde `app/src/main/assets/`, se reemplacen sin necesidad
- *    de reescribir ni tocar los componentes de la interfaz de usuario.
- * 3. Las pantallas de UI consumen sus opciones únicamente a través de este proveedor.
+ * El banco validado contiene exactamente 10 categorías temáticas reales y 3 tamaños de tablero (7x7, 10x10, 15x15).
+ * No utiliza niveles de dificultad formal (Fácil, Intermedio, Difícil) para la selección de partidas.
  */
 object GameConfigProvider {
 
+    private var bankRepository: CruciluxBankRepository? = null
+
     /**
-     * Categorías provisionales de prueba de interfaz.
-     * Reemplazar cuando se conecte el parser del banco JSON maestro.
+     * Lista de las 10 categorías temáticas reales del banco maestro con sus iconos visuales.
      */
-    val provisionalCategories: List<CruciluxCategory> = listOf(
-        CruciluxCategory(id = "general", displayName = "General", icon = Icons.Default.Dashboard),
+    val officialCategories: List<CruciluxCategory> = listOf(
+        CruciluxCategory(id = "cultura_general", displayName = "Cultura general", icon = Icons.Default.Public),
         CruciluxCategory(id = "ciencia", displayName = "Ciencia", icon = Icons.Default.Science),
-        CruciluxCategory(id = "historia", displayName = "Historia", icon = Icons.AutoMirrored.Filled.MenuBook),
-        CruciluxCategory(id = "arte", displayName = "Arte", icon = Icons.Default.Palette),
         CruciluxCategory(id = "naturaleza", displayName = "Naturaleza", icon = Icons.Default.Park),
-        CruciluxCategory(id = "geografia", displayName = "Geografía", icon = Icons.Default.Public),
+        CruciluxCategory(id = "animales", displayName = "Animales", icon = Icons.Default.Pets),
+        CruciluxCategory(id = "geografia", displayName = "Geografía", icon = Icons.Default.Terrain),
+        CruciluxCategory(id = "historia", displayName = "Historia", icon = Icons.AutoMirrored.Filled.MenuBook),
+        CruciluxCategory(id = "tecnologia", displayName = "Tecnología", icon = Icons.Default.Memory),
+        CruciluxCategory(id = "cine", displayName = "Cine", icon = Icons.Default.Movie),
+        CruciluxCategory(id = "biblia", displayName = "Biblia", icon = Icons.Default.AutoStories),
+        CruciluxCategory(id = "peru", displayName = "Perú", icon = Icons.Default.Flag),
     )
+
+    /**
+     * Categorías activas disponibles para la interfaz de usuario.
+     */
+    val categories: List<CruciluxCategory>
+        get() {
+            val repo = bankRepository ?: CruciluxBankRepository.getInstance()
+            val bankCategories = repo.getCategories()
+            if (bankCategories.isEmpty()) return officialCategories
+
+            return bankCategories.map { catName ->
+                officialCategories.firstOrNull { it.displayName.equals(catName, ignoreCase = true) }
+                    ?: CruciluxCategory(
+                        id = catName.lowercase().replace(" ", "_"),
+                        displayName = catName,
+                        icon = getIconForCategory(catName),
+                    )
+            }
+        }
 
     /**
      * Tamaños de tablero reales soportados por el banco maestro de Crucilux:
@@ -47,21 +73,35 @@ object GameConfigProvider {
         CruciluxGridSize.SIZE_15X15,
     )
 
-    /**
-     * Niveles de dificultad disponibles en Crucilux.
-     */
-    val availableDifficulties: List<CruciluxDifficulty> = listOf(
-        CruciluxDifficulty.EASY,
-        CruciluxDifficulty.MEDIUM,
-        CruciluxDifficulty.HARD,
-    )
-
     val defaultCategory: CruciluxCategory
-        get() = provisionalCategories.first()
+        get() = categories.firstOrNull() ?: officialCategories.first()
 
     val defaultSize: CruciluxGridSize
         get() = CruciluxGridSize.SIZE_10X10
 
-    val defaultDifficulty: CruciluxDifficulty
-        get() = CruciluxDifficulty.MEDIUM
+    /**
+     * Inicializa el proveedor con el repositorio del banco maestro.
+     */
+    fun initialize(repository: CruciluxBankRepository) {
+        this.bankRepository = repository
+    }
+
+    /**
+     * Retorna el icono asociado a una categoría por nombre.
+     */
+    fun getIconForCategory(name: String): ImageVector {
+        return when (name.lowercase().trim()) {
+            "cultura general" -> Icons.Default.Public
+            "ciencia" -> Icons.Default.Science
+            "naturaleza" -> Icons.Default.Park
+            "animales" -> Icons.Default.Pets
+            "geografía", "geografia" -> Icons.Default.Terrain
+            "historia" -> Icons.AutoMirrored.Filled.MenuBook
+            "tecnología", "tecnologia" -> Icons.Default.Memory
+            "cine" -> Icons.Default.Movie
+            "biblia" -> Icons.Default.AutoStories
+            "perú", "peru" -> Icons.Default.Flag
+            else -> Icons.Default.Category
+        }
+    }
 }

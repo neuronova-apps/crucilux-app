@@ -16,10 +16,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.GridOn
-import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.filled.Tag
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -28,6 +29,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -38,22 +40,27 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.neuronova.crucilux.data.bank.CruciluxBankRepository
 import com.neuronova.crucilux.ui.theme.SuccessGreen
 
 /**
  * Pantalla de confirmación "Partida preparada".
- * Muestra el resumen de la configuración seleccionada por el usuario
- * antes de que el motor del crucigrama genere el tablero en la siguiente etapa.
- * No implementa tablero jugable todavía.
+ * Muestra el resumen de la configuración seleccionada por el usuario (Categoría y Tamaño)
+ * y el tablero asignado desde el banco maestro validado.
+ * No implementa tablero interactivo todavía.
  */
 @Composable
 fun GameSetupReadyScreen(
     category: String,
     size: String,
-    difficulty: String,
     onVolver: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val repository = remember { CruciluxBankRepository.getInstance() }
+    val assignedBoard = remember(category, size) {
+        repository.obtenerCrucigrama(category, size)
+    }
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -136,11 +143,19 @@ fun GameSetupReadyScreen(
                     value = size,
                 )
 
-                SummaryItemRow(
-                    icon = Icons.Default.Speed,
-                    label = "Dificultad",
-                    value = difficulty,
-                )
+                if (assignedBoard != null) {
+                    SummaryItemRow(
+                        icon = Icons.Default.Tag,
+                        label = "Tablero asignado",
+                        value = assignedBoard.id,
+                    )
+
+                    SummaryItemRow(
+                        icon = Icons.AutoMirrored.Filled.List,
+                        label = "Palabras a descubrir",
+                        value = "${assignedBoard.entries.size} palabras",
+                    )
+                }
             }
         }
 

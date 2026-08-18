@@ -35,20 +35,18 @@ import com.neuronova.crucilux.ui.components.OptionSelectorGroup
 
 @Composable
 fun PlayScreen(
-    onNavigateToReady: (category: String, size: String, difficulty: String) -> Unit,
+    onNavigateToReady: (category: String, size: String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    // Las opciones se obtienen directamente del proveedor centralizado de configuración
-    val categories = GameConfigProvider.provisionalCategories
+    // Las opciones se obtienen directamente del proveedor centralizado basado en el banco real
+    val categories = GameConfigProvider.categories
     val sizes = GameConfigProvider.availableSizes
-    val difficulties = GameConfigProvider.availableDifficulties
 
-    // Estado Compose inicializado con los valores predeterminados del proveedor
+    // Estado Compose inicializado con los valores predeterminados
     var selectedCategory by remember { mutableStateOf(GameConfigProvider.defaultCategory.displayName) }
     var selectedSize by remember { mutableStateOf(GameConfigProvider.defaultSize.label) }
-    var selectedDifficulty by remember { mutableStateOf(GameConfigProvider.defaultDifficulty.displayName) }
 
-    val isFormComplete = selectedCategory.isNotBlank() && selectedSize.isNotBlank() && selectedDifficulty.isNotBlank()
+    val isFormComplete = selectedCategory.isNotBlank() && selectedSize.isNotBlank()
 
     Column(
         modifier = modifier
@@ -75,7 +73,7 @@ fun PlayScreen(
 
         Spacer(Modifier.height(20.dp))
 
-        // Sección 1: Categoría
+        // Sección 1: Categoría (10 categorías temáticas reales del banco)
         SectionHeader(
             title = "Categoría",
             subtitle = "Selecciona la temática de las palabras",
@@ -94,7 +92,7 @@ fun PlayScreen(
                         CategoryCard(
                             title = item.displayName,
                             icon = item.icon ?: Icons.Default.Category,
-                            isSelected = selectedCategory == item.displayName,
+                            isSelected = selectedCategory.equals(item.displayName, ignoreCase = true),
                             onSelect = { selectedCategory = item.displayName },
                             modifier = Modifier.weight(1f),
                         )
@@ -108,7 +106,7 @@ fun PlayScreen(
 
         Spacer(Modifier.height(22.dp))
 
-        // Sección 2: Tamaño (7x7, 10x10, 15x15)
+        // Sección 2: Tamaño real del tablero (7x7, 10x10, 15x15)
         SectionHeader(
             title = "Tamaño",
             subtitle = "Dimensiones del tablero",
@@ -121,22 +119,7 @@ fun PlayScreen(
             labelProvider = { it },
         )
 
-        Spacer(Modifier.height(22.dp))
-
-        // Sección 3: Dificultad (Fácil, Intermedio, Difícil)
-        SectionHeader(
-            title = "Dificultad",
-            subtitle = "Complejidad de las pistas",
-        )
-        Spacer(Modifier.height(10.dp))
-        OptionSelectorGroup(
-            options = difficulties.map { it.displayName },
-            selectedOption = selectedDifficulty,
-            onOptionSelected = { selectedDifficulty = it },
-            labelProvider = { it },
-        )
-
-        Spacer(Modifier.height(28.dp))
+        Spacer(Modifier.height(32.dp))
 
         // Botón principal de acción
         Button(
@@ -145,7 +128,6 @@ fun PlayScreen(
                     onNavigateToReady(
                         selectedCategory,
                         selectedSize,
-                        selectedDifficulty,
                     )
                 }
             },
@@ -155,9 +137,9 @@ fun PlayScreen(
                 .height(52.dp)
                 .semantics {
                     contentDescription = if (isFormComplete) {
-                        "Crear crucigrama con categoría $selectedCategory, tamaño $selectedSize y dificultad $selectedDifficulty"
+                        "Crear crucigrama con categoría $selectedCategory y tamaño $selectedSize"
                     } else {
-                        "Crear crucigrama deshabilitado, faltan selecciones obligatorias"
+                        "Crear crucigrama deshabilitado, selecciona categoría y tamaño"
                     }
                 },
             shape = RoundedCornerShape(14.dp),

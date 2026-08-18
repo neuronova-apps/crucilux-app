@@ -16,8 +16,8 @@ data class CruciluxCategory(
 )
 
 /**
- * Dimensiones y tamaños de cuadrícula soportados por el banco maestro de Crucilux.
- * Estructuras preparadas: 7x7, 10x10 y 15x15.
+ * Dimensiones y tamaños de cuadrícula soportados por el banco maestro de Crucilux:
+ * 7x7, 10x10 y 15x15.
  *
  * @property label Etiqueta visual mostrada en la interfaz (ej. "7x7").
  * @property rows Cantidad de filas del tablero.
@@ -40,22 +40,9 @@ enum class CruciluxGridSize(
 }
 
 /**
- * Niveles de dificultad para partidas de Crucilux.
- *
- * @property id Identificador interno del nivel de dificultad.
- * @property displayName Nombre visual mostrado en la interfaz.
+ * Configuración de partida seleccionada por el usuario (Categoría y Tamaño).
  */
-enum class CruciluxDifficulty(
-    val id: String,
-    val displayName: String,
-) {
-    EASY(id = "facil", displayName = "Fácil"),
-    MEDIUM(id = "intermedio", displayName = "Intermedio"),
-    HARD(id = "dificil", displayName = "Difícil");
-
-    companion object {
-        fun fromDisplayName(name: String): CruciluxDifficulty {
-            return entries.firstOrNull { it.displayName.equals(name, ignoreCase = true) } ?: MEDIUM
-        }
-    }
-}
+data class GameSetupConfig(
+    val category: String,
+    val size: CruciluxGridSize,
+)
