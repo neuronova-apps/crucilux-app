@@ -134,7 +134,7 @@ fun WelcomeScreen(
             Spacer(Modifier.height(14.dp))
 
             Text(
-                text = "NeuroNova Apps",
+                text = "NeuroNova",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                 letterSpacing = 1.sp,

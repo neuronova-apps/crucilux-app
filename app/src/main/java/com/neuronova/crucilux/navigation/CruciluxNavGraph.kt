@@ -8,10 +8,14 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.neuronova.crucilux.data.GameConfigProvider
+import com.neuronova.crucilux.data.UserPreferences
+import com.neuronova.crucilux.data.UserPreferencesManager
+import com.neuronova.crucilux.ui.screens.AboutScreen
 import com.neuronova.crucilux.ui.screens.GameSetupReadyScreen
 import com.neuronova.crucilux.ui.screens.HomeScreen
 import com.neuronova.crucilux.ui.screens.PlayScreen
 import com.neuronova.crucilux.ui.screens.ProgressScreen
+import com.neuronova.crucilux.ui.screens.SettingsScreen
 import com.neuronova.crucilux.ui.screens.WelcomeScreen
 
 /** Destinos de navegación de Crucilux. */
@@ -20,6 +24,8 @@ sealed class Screen(val route: String) {
     object Home           : Screen("home")
     object Play           : Screen("play")
     object Progress       : Screen("progress")
+    object Settings       : Screen("settings")
+    object About          : Screen("about")
     object GameSetupReady : Screen("game_setup_ready/{category}/{size}/{difficulty}") {
         fun createRoute(category: String, size: String, difficulty: String): String {
             return "game_setup_ready/$category/$size/$difficulty"
@@ -37,6 +43,8 @@ val bottomBarRoutes = setOf(
 @Composable
 fun CruciluxNavGraph(
     navController: NavHostController,
+    userPreferences: UserPreferences,
+    preferencesManager: UserPreferencesManager,
     modifier: Modifier = Modifier,
 ) {
     NavHost(
@@ -56,10 +64,14 @@ fun CruciluxNavGraph(
         }
         composable(Screen.Home.route) {
             HomeScreen(
+                userName = userPreferences.userName,
                 onComenzar = {
                     navController.navigate(Screen.Play.route) {
                         launchSingleTop = true
                     }
+                },
+                onOpenSettings = {
+                    navController.navigate(Screen.Settings.route)
                 },
             )
         }
@@ -76,6 +88,25 @@ fun CruciluxNavGraph(
         }
         composable(Screen.Progress.route) {
             ProgressScreen()
+        }
+        composable(Screen.Settings.route) {
+            SettingsScreen(
+                userPreferences = userPreferences,
+                preferencesManager = preferencesManager,
+                onNavigateToAbout = {
+                    navController.navigate(Screen.About.route)
+                },
+                onVolver = {
+                    navController.popBackStack()
+                },
+            )
+        }
+        composable(Screen.About.route) {
+            AboutScreen(
+                onVolver = {
+                    navController.popBackStack()
+                },
+            )
         }
         composable(
             route = Screen.GameSetupReady.route,

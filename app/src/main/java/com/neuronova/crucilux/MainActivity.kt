@@ -7,10 +7,13 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.neuronova.crucilux.data.UserPreferences
+import com.neuronova.crucilux.data.UserPreferencesManager
 import com.neuronova.crucilux.navigation.CruciluxNavGraph
 import com.neuronova.crucilux.navigation.Screen
 import com.neuronova.crucilux.navigation.bottomBarRoutes
@@ -18,19 +21,36 @@ import com.neuronova.crucilux.ui.components.CruciluxBottomBar
 import com.neuronova.crucilux.ui.theme.CruciluxTheme
 
 class MainActivity : ComponentActivity() {
+
+    private lateinit var preferencesManager: UserPreferencesManager
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        preferencesManager = UserPreferencesManager.getInstance(applicationContext)
         enableEdgeToEdge()
+
         setContent {
-            CruciluxTheme {
-                CruciluxApp()
+            val userPreferences by preferencesManager.userPreferencesFlow
+                .collectAsState(initial = UserPreferences())
+
+            CruciluxTheme(
+                darkTheme = userPreferences.isDarkMode,
+                highContrast = userPreferences.isHighContrast,
+            ) {
+                CruciluxApp(
+                    userPreferences = userPreferences,
+                    preferencesManager = preferencesManager,
+                )
             }
         }
     }
 }
 
 @Composable
-private fun CruciluxApp() {
+private fun CruciluxApp(
+    userPreferences: UserPreferences,
+    preferencesManager: UserPreferencesManager,
+) {
     val navController   = rememberNavController()
     val backStackEntry  by navController.currentBackStackEntryAsState()
     val currentRoute    = backStackEntry?.destination?.route
@@ -53,8 +73,10 @@ private fun CruciluxApp() {
         },
     ) { innerPadding ->
         CruciluxNavGraph(
-            navController = navController,
-            modifier      = Modifier.padding(innerPadding),
+            navController      = navController,
+            userPreferences    = userPreferences,
+            preferencesManager = preferencesManager,
+            modifier           = Modifier.padding(innerPadding),
         )
     }
 }

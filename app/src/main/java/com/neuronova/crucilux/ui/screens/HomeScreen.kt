@@ -2,6 +2,7 @@ package com.neuronova.crucilux.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,11 +20,13 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.CheckCircleOutline
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.PieChart
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -36,8 +39,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -49,14 +54,21 @@ import com.neuronova.crucilux.ui.theme.StreakOrange
 import com.neuronova.crucilux.ui.theme.SuccessGreen
 
 @Composable
-fun HomeScreen(onComenzar: () -> Unit) {
+fun HomeScreen(
+    userName: String = "",
+    onComenzar: () -> Unit,
+    onOpenSettings: () -> Unit = {},
+) {
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
             .verticalScroll(rememberScrollState()),
     ) {
-        HomeHeader()
+        HomeHeader(
+            userName = userName,
+            onOpenSettings = onOpenSettings,
+        )
 
         // Identidad visual compacta estilo crucigrama
         CrosswordBrandVisual(
@@ -115,6 +127,16 @@ fun HomeScreen(onComenzar: () -> Unit) {
             AchievementsCard(Modifier.weight(1f))
         }
 
+        Spacer(Modifier.height(12.dp))
+
+        // Tarjeta de acceso visible a Configuración estilo Sudolux
+        SettingsEntryCard(
+            onOpenSettings = onOpenSettings,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp),
+        )
+
         Spacer(Modifier.height(20.dp))
     }
 }
@@ -124,23 +146,58 @@ fun HomeScreen(onComenzar: () -> Unit) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
-private fun HomeHeader() {
+private fun HomeHeader(
+    userName: String,
+    onOpenSettings: () -> Unit,
+) {
     Row(
-        modifier              = Modifier
+        modifier          = Modifier
             .fillMaxWidth()
             .padding(start = 20.dp, end = 20.dp, top = 18.dp, bottom = 12.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment     = Alignment.CenterVertically,
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Column {
+        // Badge visual equivalente al de Sudolux con la letra "C" para Crucilux
+        Box(
+            modifier = Modifier
+                .size(44.dp)
+                .clip(RoundedCornerShape(14.dp))
+                .background(
+                    Brush.linearGradient(
+                        colors = listOf(
+                            MaterialTheme.colorScheme.primary,
+                            MaterialTheme.colorScheme.secondary,
+                        )
+                    )
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text       = "C",
+                color      = MaterialTheme.colorScheme.onPrimary,
+                fontSize   = 22.sp,
+                fontWeight = FontWeight.Black,
+            )
+        }
+
+        Spacer(Modifier.width(12.dp))
+
+        Column(modifier = Modifier.weight(1f)) {
+            if (userName.isNotBlank()) {
+                Text(
+                    text       = "Hola, $userName",
+                    style      = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                    color      = MaterialTheme.colorScheme.primary,
+                )
+                Spacer(Modifier.height(1.dp))
+            }
             Text(
                 text          = "CRUCILUX",
-                style         = MaterialTheme.typography.headlineLarge,
-                color         = MaterialTheme.colorScheme.primary,
+                style         = MaterialTheme.typography.headlineSmall,
+                color         = MaterialTheme.colorScheme.onBackground,
                 fontWeight    = FontWeight.ExtraBold,
-                letterSpacing = 2.sp,
+                letterSpacing = 1.2.sp,
             )
-            Spacer(Modifier.height(2.dp))
             Text(
                 text  = "Ejercita tu mente con palabras",
                 style = MaterialTheme.typography.bodySmall,
@@ -148,14 +205,16 @@ private fun HomeHeader() {
             )
         }
 
-        // Botón Aa — accesibilidad / apariencia (referencia estilo Sudolux)
+        Spacer(Modifier.width(8.dp))
+
+        // Botón Aa — acceso a Configuración y Accesibilidad
         FilledTonalButton(
-            onClick        = { /* reservado para opciones de accesibilidad / apariencia */ },
+            onClick        = onOpenSettings,
             modifier       = Modifier
-                .defaultMinSize(minWidth = 48.dp, minHeight = 40.dp)
-                .semantics { contentDescription = "Opciones de apariencia y accesibilidad" },
+                .defaultMinSize(minWidth = 44.dp, minHeight = 40.dp)
+                .semantics { contentDescription = "Abrir configuración y opciones de apariencia" },
             shape          = RoundedCornerShape(12.dp),
-            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp),
+            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
         ) {
             Text(
                 text       = "Aa",
@@ -437,3 +496,80 @@ private fun AchievementsCard(modifier: Modifier = Modifier) {
         }
     }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Tarjeta visible de Configuración en Inicio estilo Sudolux
+// ─────────────────────────────────────────────────────────────────────────────
+
+@Composable
+private fun SettingsEntryCard(
+    onOpenSettings: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Card(
+        modifier = modifier
+            .clip(RoundedCornerShape(16.dp))
+            .clickable(role = Role.Button, onClick = onOpenSettings)
+            .semantics {
+                contentDescription = "Abrir configuración y opciones de apariencia"
+            },
+        shape     = RoundedCornerShape(16.dp),
+        colors    = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface,
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border    = CardDefaults.outlinedCardBorder().copy(
+            brush = androidx.compose.ui.graphics.SolidColor(
+                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
+            )
+        ),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Settings,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
+                Column {
+                    Text(
+                        text = "Configuración",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Text(
+                        text = "Tema, contraste y opciones",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.ArrowForwardIos,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(16.dp),
+            )
+        }
+    }
+}
+

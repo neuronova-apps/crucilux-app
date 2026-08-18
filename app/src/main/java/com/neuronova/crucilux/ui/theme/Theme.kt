@@ -9,6 +9,7 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
 
+// 1. Día Normal
 private val LightColorScheme = lightColorScheme(
     primary              = LightPrimary,
     onPrimary            = LightOnPrimary,
@@ -36,6 +37,35 @@ private val LightColorScheme = lightColorScheme(
     outlineVariant       = LightOutlineVariant,
 )
 
+// 2. Día + Alto Contraste
+private val LightHighContrastColorScheme = lightColorScheme(
+    primary              = LightHCDayPrimary,
+    onPrimary            = LightHCDayOnPrimary,
+    primaryContainer     = LightHCDayPrimaryContainer,
+    onPrimaryContainer   = LightHCDayOnPrimaryContainer,
+    secondary            = LightHCDaySecondary,
+    onSecondary          = LightHCDayOnSecondary,
+    secondaryContainer   = LightHCDaySecondaryContainer,
+    onSecondaryContainer = LightHCDayOnSecondaryContainer,
+    tertiary             = LightHCDayTertiary,
+    onTertiary           = LightHCDayOnTertiary,
+    tertiaryContainer    = LightHCDayTertiaryContainer,
+    onTertiaryContainer  = LightHCDayOnTertiaryContainer,
+    error                = LightError,
+    onError              = LightOnError,
+    errorContainer       = LightErrorContainer,
+    onErrorContainer     = LightOnErrorContainer,
+    background           = LightHCDayBackground,
+    onBackground         = LightHCDayOnBackground,
+    surface              = LightHCDaySurface,
+    onSurface            = LightHCDayOnSurface,
+    surfaceVariant       = LightHCDaySurfaceVariant,
+    onSurfaceVariant     = LightHCDayOnSurfaceVariant,
+    outline              = LightHCDayOutline,
+    outlineVariant       = LightHCDayOutlineVariant,
+)
+
+// 3. Noche Normal
 private val DarkColorScheme = darkColorScheme(
     primary              = DarkPrimary,
     onPrimary            = DarkOnPrimary,
@@ -63,17 +93,47 @@ private val DarkColorScheme = darkColorScheme(
     outlineVariant       = DarkOutlineVariant,
 )
 
+// 4. Noche + Alto Contraste
+private val DarkHighContrastColorScheme = darkColorScheme(
+    primary              = DarkHCNightPrimary,
+    onPrimary            = DarkHCNightOnPrimary,
+    primaryContainer     = DarkHCNightPrimaryContainer,
+    onPrimaryContainer   = DarkHCNightOnPrimaryContainer,
+    secondary            = DarkHCNightSecondary,
+    onSecondary          = DarkHCNightOnSecondary,
+    secondaryContainer   = DarkHCNightSecondaryContainer,
+    onSecondaryContainer = DarkHCNightOnSecondaryContainer,
+    tertiary             = DarkHCNightTertiary,
+    onTertiary           = DarkHCNightOnTertiary,
+    tertiaryContainer    = DarkHCNightTertiaryContainer,
+    onTertiaryContainer  = DarkHCNightOnTertiaryContainer,
+    error                = DarkError,
+    onError              = DarkOnError,
+    errorContainer       = DarkErrorContainer,
+    onErrorContainer     = DarkOnErrorContainer,
+    background           = DarkHCNightBackground,
+    onBackground         = DarkHCNightOnBackground,
+    surface              = DarkHCNightSurface,
+    onSurface            = DarkHCNightOnSurface,
+    surfaceVariant       = DarkHCNightSurfaceVariant,
+    onSurfaceVariant     = DarkHCNightOnSurfaceVariant,
+    outline              = DarkHCNightOutline,
+    outlineVariant       = DarkHCNightOutlineVariant,
+)
+
 /**
- * Tema principal de Crucilux.
+ * Tema principal de Crucilux con soporte completo para:
+ * - Día Normal
+ * - Día + Alto Contraste
+ * - Noche Normal
+ * - Noche + Alto Contraste
  *
- * [darkTheme] es false por defecto para asegurar que la aplicación inicie siempre
- * en modo día, independientemente del tema del sistema. La paleta nocturna permanece
- * preparada para cuando se implemente la selección manual de tema.
- * [dynamicColor] permanece desactivado para mantener la identidad visual de marca.
+ * Modo día es el valor predeterminado.
  */
 @Composable
 fun CruciluxTheme(
     darkTheme: Boolean = false,
+    highContrast: Boolean = false,
     dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
@@ -82,8 +142,10 @@ fun CruciluxTheme(
             val context = LocalContext.current
             if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         }
-        darkTheme -> DarkColorScheme
-        else      -> LightColorScheme
+        darkTheme && highContrast  -> DarkHighContrastColorScheme
+        darkTheme && !highContrast -> DarkColorScheme
+        !darkTheme && highContrast -> LightHighContrastColorScheme
+        else                       -> LightColorScheme
     }
 
     MaterialTheme(
