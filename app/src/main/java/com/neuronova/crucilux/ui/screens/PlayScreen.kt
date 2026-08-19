@@ -1,10 +1,11 @@
-﻿package com.neuronova.crucilux.ui.screens
+package com.neuronova.crucilux.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -12,15 +13,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
 import androidx.compose.material.icons.filled.Category
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -30,9 +29,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -40,22 +37,15 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.neuronova.crucilux.data.GameConfigProvider
-import com.neuronova.crucilux.data.db.CrosswordBoardStatus
 import com.neuronova.crucilux.data.repository.CrosswordProgressRepository
 import com.neuronova.crucilux.ui.theme.SuccessGreen
 
-/**
- * Pantalla de selección de temática (Categorías).
- *
- * Flujo oficial:
- * Jugar → Categoría → 30 tableros (CategoryBoardsScreen) → Partida
- */
+/** Selección directa de las 10 categorías en una cuadrícula fija de 2 × 5. */
 @Composable
 fun PlayScreen(
     onNavigateToCategoryBoards: (category: String) -> Unit,
@@ -63,205 +53,147 @@ fun PlayScreen(
 ) {
     val context = LocalContext.current
     val progressRepository = remember { CrosswordProgressRepository.getInstance(context) }
-    val categories = GameConfigProvider.categories
-
-    var selectedCategory by remember { mutableStateOf(GameConfigProvider.defaultCategory.displayName) }
 
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .padding(horizontal = 20.dp)
-            .verticalScroll(rememberScrollState()),
+            .background(MaterialTheme.colorScheme.background),
     ) {
-        Spacer(Modifier.height(20.dp))
-
-        // Cabecera
-        Text(
-            text = "Categorías",
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onBackground,
-        )
-        Spacer(Modifier.height(2.dp))
-        Text(
-            text = "Selecciona una temática para ver sus 30 tableros",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-
-        Spacer(Modifier.height(20.dp))
-
-        // Lista de las 10 categorías con barra de progreso individual
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            categories.forEach { item ->
-                val isSelected = selectedCategory.equals(item.displayName, ignoreCase = true)
-                val stats by progressRepository.observeCategoryStats(item.displayName)
-                    .collectAsState(initial = null)
-
-                val completed = stats?.completedBoards ?: 0
-                val percent = stats?.completedPercent ?: 0
-
-                CategoryProgressCard(
-                    title = item.displayName,
-                    icon = item.icon ?: Icons.Default.Category,
-                    completed = completed,
-                    total = 30,
-                    percent = percent,
-                    isSelected = isSelected,
-                    onSelect = {
-                        selectedCategory = item.displayName
-                        onNavigateToCategoryBoards(item.displayName)
-                    },
-                )
-            }
-        }
-
-        Spacer(Modifier.height(24.dp))
-
-        // Botón de acción directo
-        Button(
-            onClick = {
-                onNavigateToCategoryBoards(selectedCategory)
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(52.dp)
-                .semantics {
-                    contentDescription = "Ver los 30 tableros de $selectedCategory"
-                },
-            shape = RoundedCornerShape(14.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary,
-            ),
+        Column(
+            modifier = Modifier.padding(start = 18.dp, end = 18.dp, top = 18.dp, bottom = 8.dp),
         ) {
             Text(
-                text = "Ver tableros de $selectedCategory",
-                style = MaterialTheme.typography.titleMedium,
+                text = "Categorías",
+                style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
-                fontSize = 16.sp,
+                color = MaterialTheme.colorScheme.onBackground,
+            )
+            Spacer(Modifier.height(2.dp))
+            Text(
+                text = "Selecciona una temática para ver sus 30 tableros",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
 
-        Spacer(Modifier.height(28.dp))
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(2),
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            items(GameConfigProvider.categories, key = { it.displayName }) { item ->
+                val stats by progressRepository.observeCategoryStats(item.displayName)
+                    .collectAsState(initial = null)
+                CategoryGridCard(
+                    title = item.displayName,
+                    icon = item.icon ?: Icons.Default.Category,
+                    completed = stats?.completedBoards ?: 0,
+                    percent = stats?.completedPercent ?: 0,
+                    onClick = { onNavigateToCategoryBoards(item.displayName) },
+                )
+            }
+        }
     }
 }
 
 @Composable
-private fun CategoryProgressCard(
+private fun CategoryGridCard(
     title: String,
     icon: ImageVector,
     completed: Int,
-    total: Int,
     percent: Int,
-    isSelected: Boolean,
-    onSelect: () -> Unit,
-    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
 ) {
+    val complete = percent == 100
     Card(
-        modifier = modifier
+        modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
-            .clickable(role = Role.Button, onClick = onSelect)
+            .height(126.dp)
+            .clip(RoundedCornerShape(15.dp))
+            .clickable(role = Role.Button, onClick = onClick)
             .semantics {
-                selected = isSelected
-                contentDescription = "Categoría $title, $completed de $total completados ($percent por ciento)"
+                contentDescription = "Categoría $title, $completed de 30 completados, $percent por ciento. Abrir tableros"
             },
-        shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = if (isSelected) {
-                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
-            } else {
-                MaterialTheme.colorScheme.surface
-            },
-        ),
+        shape = RoundedCornerShape(15.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = CardDefaults.outlinedCardBorder(),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        border = CardDefaults.outlinedCardBorder().copy(
-            brush = androidx.compose.ui.graphics.SolidColor(
-                if (isSelected) MaterialTheme.colorScheme.primary
-                else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f)
-            ),
-            width = if (isSelected) 1.5.dp else 1.dp,
-        ),
     ) {
         Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+                .fillMaxSize()
+                .padding(12.dp),
+            verticalArrangement = Arrangement.SpaceBetween,
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
+                verticalAlignment = Alignment.Top,
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                Box(
+                    modifier = Modifier
+                        .size(34.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(
+                            if (complete) SuccessGreen.copy(alpha = 0.16f)
+                            else MaterialTheme.colorScheme.primaryContainer,
+                        ),
+                    contentAlignment = Alignment.Center,
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(36.dp)
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(
-                                if (percent == 100) SuccessGreen.copy(alpha = 0.15f)
-                                else MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
-                            ),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(
-                            imageVector = icon,
-                            contentDescription = null,
-                            tint = if (percent == 100) SuccessGreen else MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(20.dp),
-                        )
-                    }
-
-                    Column {
-                        Text(
-                            text = title,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
-                        Text(
-                            text = "$completed / $total completados",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
-
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    Text(
-                        text = "$percent %",
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = if (percent == 100) SuccessGreen else MaterialTheme.colorScheme.primary,
-                    )
                     Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowForwardIos,
+                        imageVector = icon,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(14.dp),
+                        tint = if (complete) SuccessGreen else MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(19.dp),
                     )
                 }
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowForwardIos,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(13.dp),
+                )
             }
 
-            // Barra de progreso compacta
-            LinearProgressIndicator(
-                progress = { (percent / 100f).coerceIn(0f, 1f) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(4.dp)
-                    .clip(RoundedCornerShape(2.dp)),
-                color = if (percent == 100) SuccessGreen else MaterialTheme.colorScheme.primary,
-                trackColor = MaterialTheme.colorScheme.surfaceVariant,
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                color = MaterialTheme.colorScheme.onSurface,
             )
+
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Text(
+                        text = "$completed / 30",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                        text = "$percent %",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = if (complete) SuccessGreen else MaterialTheme.colorScheme.primary,
+                    )
+                }
+                LinearProgressIndicator(
+                    progress = { percent / 100f },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(4.dp)
+                        .clip(RoundedCornerShape(2.dp)),
+                    color = if (complete) SuccessGreen else MaterialTheme.colorScheme.primary,
+                    trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                )
+            }
         }
     }
 }

@@ -63,6 +63,8 @@ import com.neuronova.crucilux.data.repository.GlobalProgressStats
 import com.neuronova.crucilux.ui.theme.ProgressBlue
 import com.neuronova.crucilux.ui.theme.StreakOrange
 import com.neuronova.crucilux.ui.theme.SuccessGreen
+import com.neuronova.crucilux.progression.PlayerProgress
+import com.neuronova.crucilux.ui.components.PlayerLevelCard
 
 @Composable
 fun HomeScreen(
@@ -87,6 +89,8 @@ fun HomeScreen(
     // Observar estadísticas globales desde Room
     val globalStats by progressRepository.observeGlobalStats()
         .collectAsState(initial = GlobalProgressStats())
+    val playerProgress by progressRepository.observePlayerProgress()
+        .collectAsState(initial = PlayerProgress())
 
     val hasActiveInProgress = mostRecentInProgress != null &&
         mostRecentInProgress!!.status == CrosswordBoardStatus.IN_PROGRESS.name
@@ -115,6 +119,15 @@ fun HomeScreen(
         StatsCard(
             completedCount = globalStats.completedBoards,
             progressPercent = globalStats.globalPercent,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp),
+        )
+
+        Spacer(Modifier.height(10.dp))
+
+        PlayerLevelCard(
+            progress = playerProgress,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp),

@@ -1,21 +1,26 @@
 ﻿package com.neuronova.crucilux.data.repository
 
 import android.content.Context
+import androidx.room.withTransaction
 import com.neuronova.crucilux.data.GameSessionManager
 import com.neuronova.crucilux.data.bank.CruciluxBankRepository
 import com.neuronova.crucilux.data.db.CrosswordBoardStatus
 import com.neuronova.crucilux.data.db.CrosswordProgressDao
 import com.neuronova.crucilux.data.db.CrosswordProgressEntity
 import com.neuronova.crucilux.data.db.CruciluxDatabase
+import com.neuronova.crucilux.data.db.PlayerProfileDao
+import com.neuronova.crucilux.data.db.PlayerProfileEntity
 import com.neuronova.crucilux.model.CrosswordGrid
 import com.neuronova.crucilux.model.CruciluxBoard
 import com.neuronova.crucilux.model.CruciluxDirection
 import com.neuronova.crucilux.ui.game.CheckMode
+import com.neuronova.crucilux.progression.PlayerProgress
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -32,6 +37,9 @@ data class CrosswordBoardProgress(
     val selectedCol: Int = 0,
     val selectedDirection: CruciluxDirection = CruciluxDirection.HORIZONTAL,
     val checkMode: CheckMode = CheckMode.CLASSIC,
+    val hintsUsed: Int = 0,
+    val bestXpEarned: Int = 0,
+    val hintRevealedCells: Set<Pair<Int, Int>> = emptySet(),
     val updatedAt: Long = 0L,
 ) {
     val isCompleted: Boolean get() = status == CrosswordBoardStatus.COMPLETED
@@ -50,6 +58,15 @@ data class CrosswordBoardProgress(
             CrosswordBoardStatus.IN_PROGRESS -> "$progressPercent %"
             CrosswordBoardStatus.NOT_STARTED -> "○"
         }
+}
+
+data class BoardCompletionResult(
+    val xpFinal: Int,
+    val xpAwarded: Int,
+    val previousBestXp: Int,
+    val bestXpEarned: Int,
+) {
+    val isNewBest: Boolean get() = bestXpEarned > previousBestXp
 }
 
 /**
@@ -87,6 +104,8 @@ data class GlobalProgressStats(
 class CrosswordProgressRepository(
     private val dao: CrosswordProgressDao,
     private val bankRepository: CruciluxBankRepository = CruciluxBankRepository.getInstance(),
+    private val playerProfileDao: PlayerProfileDao? = null,
+    private val database: CruciluxDatabase? = null,
 ) {
 
     // ──────────────────────────────────────────────────────────────────────────
@@ -181,6 +200,16 @@ class CrosswordProgressRepository(
         return dao.observeMostRecentInProgress()
     }
 
+    fun observePlayerProgress(): Flow<PlayerProgress> {
+        return playerProfileDao?.observeProfile()?.map { profile ->
+            PlayerProgress(totalXp = profile?.totalXp ?: 0)
+        } ?: flowOf(PlayerProgress())
+    }
+
+    suspend fun getPlayerProgress(): PlayerProgress {
+        return PlayerProgress(playerProfileDao?.getProfile()?.totalXp ?: 0)
+    }
+
     /**
      * Obtiene la partida IN_PROGRESS más reciente.
      */
@@ -205,8 +234,12 @@ class CrosswordProgressRepository(
         selectedCol: Int = 0,
         selectedDirection: CruciluxDirection = CruciluxDirection.HORIZONTAL,
         checkMode: CheckMode = CheckMode.CLASSIC,
+        hintsUsed: Int = 0,
+        hintRevealedCells: Set<Pair<Int, Int>> = emptySet(),
         isCompletedOverride: Boolean = false,
-    ) {
+        awardCompletion: Boolean = false,
+        xpFinal: Int = 0,
+    ): BoardCompletionResult? = inTransaction {
         val existing = dao.getProgress(boardId)
         val alreadyCompleted = existing?.status == CrosswordBoardStatus.COMPLETED.name
 
@@ -217,7 +250,7 @@ class CrosswordProgressRepository(
             grid != null -> {
                 calculateProgress(grid, userLetters, isCompleted = false)
             }
-            userLetters.isNotEmpty() -> {
+            userLetters.isNotEmpty() || existing?.status == CrosswordBoardStatus.IN_PROGRESS.name -> {
                 Pair(CrosswordBoardStatus.IN_PROGRESS, existing?.progressPercent ?: 1)
             }
             else -> {
@@ -239,22 +272,74 @@ class CrosswordProgressRepository(
             selectedCol = selectedCol,
             selectedDirection = if (selectedDirection == CruciluxDirection.VERTICAL) "V" else "H",
             checkMode = if (checkMode == CheckMode.ASSISTED) "ASSISTED" else "CLASSIC",
+            hintsUsed = hintsUsed.coerceAtLeast(existing?.hintsUsed ?: 0),
+            bestXpEarned = existing?.bestXpEarned ?: 0,
+            hintRevealedCells = CrosswordProgressEntity.serializePositions(
+                hintRevealedCells.ifEmpty { existing?.parseHintRevealedCells().orEmpty() }
+            ),
             updatedAt = System.currentTimeMillis(),
         )
 
-        dao.insertOrUpdate(entity)
+        if (awardCompletion && finalStatus == CrosswordBoardStatus.COMPLETED) {
+            val previousBest = existing?.bestXpEarned ?: 0
+            val normalizedFinal = xpFinal.coerceAtLeast(0)
+            val newBest = maxOf(previousBest, normalizedFinal)
+            val delta = (newBest - previousBest).coerceAtLeast(0)
+            dao.insertOrUpdate(entity.copy(bestXpEarned = newBest))
+
+            if (delta > 0 && playerProfileDao != null) {
+                val profile = playerProfileDao.getProfile() ?: PlayerProfileEntity()
+                playerProfileDao.insertOrUpdate(profile.copy(totalXp = profile.totalXp + delta))
+            }
+
+            BoardCompletionResult(
+                xpFinal = normalizedFinal,
+                xpAwarded = delta,
+                previousBestXp = previousBest,
+                bestXpEarned = newBest,
+            )
+        } else {
+            dao.insertOrUpdate(entity)
+            null
+        }
+    }
+
+    /** Persiste el modo elegido y marca el tablero como iniciado aun con cero letras. */
+    suspend fun startBoard(boardId: String, category: String, checkMode: CheckMode): CrosswordBoardProgress {
+        inTransaction {
+            val existing = dao.getProgress(boardId)
+            if (existing == null || existing.boardStatus == CrosswordBoardStatus.NOT_STARTED) {
+                dao.insertOrUpdate(
+                    CrosswordProgressEntity(
+                        boardId = boardId,
+                        category = category,
+                        status = CrosswordBoardStatus.IN_PROGRESS.name,
+                        progressPercent = 0,
+                        checkMode = if (checkMode == CheckMode.ASSISTED) "ASSISTED" else "CLASSIC",
+                        bestXpEarned = existing?.bestXpEarned ?: 0,
+                        updatedAt = System.currentTimeMillis(),
+                    )
+                )
+            }
+        }
+        return getProgress(boardId)
     }
 
     /**
      * Reinicia el progreso de un tablero volviéndolo a NOT_STARTED.
      */
     suspend fun resetBoardProgress(boardId: String, category: String) {
+        val existing = dao.getProgress(boardId)
         val entity = CrosswordProgressEntity(
             boardId = boardId,
             category = category,
             status = CrosswordBoardStatus.NOT_STARTED.name,
             progressPercent = 0,
             userLetters = "",
+            checkMode = existing?.checkMode ?: "CLASSIC",
+            hintsUsed = 0,
+            bestXpEarned = existing?.bestXpEarned ?: 0,
+            hintRevealedCells = "",
             updatedAt = System.currentTimeMillis(),
         )
         dao.insertOrUpdate(entity)
@@ -363,6 +448,9 @@ class CrosswordProgressRepository(
             selectedCol = entity.selectedCol,
             selectedDirection = entity.direction,
             checkMode = entity.parsedCheckMode,
+            hintsUsed = entity.hintsUsed,
+            bestXpEarned = entity.bestXpEarned,
+            hintRevealedCells = entity.parseHintRevealedCells(),
             updatedAt = entity.updatedAt,
         )
     }
@@ -378,6 +466,8 @@ class CrosswordProgressRepository(
                     CrosswordProgressRepository(
                         dao = db.progressDao(),
                         bankRepository = CruciluxBankRepository.getInstance(),
+                        playerProfileDao = db.playerProfileDao(),
+                        database = db,
                     ).also { instance = it }
                 }
             }
@@ -417,5 +507,9 @@ class CrosswordProgressRepository(
             val percent = ((correctPlayable * 100) / totalPlayable).coerceIn(0, 99)
             return Pair(CrosswordBoardStatus.IN_PROGRESS, percent)
         }
+    }
+
+    private suspend fun <T> inTransaction(block: suspend () -> T): T {
+        return if (database != null) database.withTransaction { block() } else block()
     }
 }

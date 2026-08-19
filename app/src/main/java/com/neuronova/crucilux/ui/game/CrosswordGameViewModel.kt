@@ -8,11 +8,14 @@ import com.neuronova.crucilux.data.GameSessionState
 import com.neuronova.crucilux.data.bank.CruciluxBankRepository
 import com.neuronova.crucilux.data.db.CrosswordBoardStatus
 import com.neuronova.crucilux.data.repository.CrosswordProgressRepository
+import com.neuronova.crucilux.data.repository.BoardCompletionResult
 import com.neuronova.crucilux.engine.CruciluxGridEngine
 import com.neuronova.crucilux.model.CrosswordClue
 import com.neuronova.crucilux.model.CrosswordGrid
 import com.neuronova.crucilux.model.CruciluxBoard
 import com.neuronova.crucilux.model.CruciluxDirection
+import com.neuronova.crucilux.progression.XpCalculator
+import com.neuronova.crucilux.progression.HintRules
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -21,6 +24,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Modo de comprobación
@@ -56,10 +61,16 @@ data class CrosswordGameState(
     val activeCellsInWord: Set<Pair<Int, Int>> = emptySet(),
     val userLetters: Map<Pair<Int, Int>, Char> = emptyMap(),
     val checkMode: CheckMode = CheckMode.CLASSIC,
+    val hintsUsed: Int = 0,
+    val hintRevealedCells: Set<Pair<Int, Int>> = emptySet(),
+    val xpPossible: Int = 0,
+    val bestXpEarned: Int = 0,
     val incorrectCells: Set<Pair<Int, Int>> = emptySet(),
     val validatedEntryBankIds: Set<String> = emptySet(),
     val validatedCells: Set<Pair<Int, Int>> = emptySet(),
     val isCompleted: Boolean = false,
+    val isReviewMode: Boolean = false,
+    val completionResult: BoardCompletionResult? = null,
     val isSessionSaved: Boolean = false,
     val progressPercent: Int = 0,
     val nextBoardId: String? = null,
@@ -79,6 +90,8 @@ class CrosswordGameViewModel(
 
     private val _state = MutableStateFlow(CrosswordGameState())
     val state: StateFlow<CrosswordGameState> = _state.asStateFlow()
+    private var completionSubmitted = false
+    private val saveMutex = Mutex()
 
     companion object {
         /**
@@ -109,6 +122,7 @@ class CrosswordGameViewModel(
         if (!current.isLoading && current.board?.id == boardId && current.grid != null) return
 
         viewModelScope.launch(Dispatchers.Default) {
+            completionSubmitted = false
             _state.value = CrosswordGameState(isLoading = true)
             try {
                 val repository = CruciluxBankRepository.getInstance()
@@ -177,9 +191,14 @@ class CrosswordGameViewModel(
                         activeCellsInWord = cells,
                         userLetters = userLetters,
                         checkMode = savedMode,
+                        hintsUsed = savedProgress.hintsUsed,
+                        hintRevealedCells = savedProgress.hintRevealedCells,
+                        xpPossible = XpCalculator.finalXp(board.entries.size, savedMode, savedProgress.hintsUsed),
+                        bestXpEarned = savedProgress.bestXpEarned,
                         validatedEntryBankIds = valBankIds,
                         validatedCells = valCells,
                         isCompleted = isComp,
+                        isReviewMode = isAlreadyCompleted,
                         isSessionSaved = true,
                         progressPercent = savedProgress.progressPercent,
                     )
@@ -209,6 +228,7 @@ class CrosswordGameViewModel(
                         activeCellsInWord = cells,
                         userLetters = userLetters,
                         checkMode = savedMode,
+                        xpPossible = XpCalculator.finalXp(board.entries.size, savedMode, 0),
                         validatedEntryBankIds = valBankIds,
                         validatedCells = valCells,
                         isCompleted = isComp,
@@ -237,6 +257,7 @@ class CrosswordGameViewModel(
                         activeEntryBankId = entryId,
                         activeCellsInWord = cells,
                         progressPercent = 0,
+                        xpPossible = XpCalculator.finalXp(board.entries.size, CheckMode.CLASSIC, 0),
                     )
                 }
             } catch (e: Exception) {
@@ -332,7 +353,10 @@ class CrosswordGameViewModel(
         val grid = st.grid ?: return
 
         val (entryId, cells) = computeActiveWord(grid, clue.startRow, clue.startCol, clue.direction)
-        val targetCell = findFirstUnvalidatedCellInWord(cells, st.validatedCells) ?: Pair(clue.startRow, clue.startCol)
+        val targetCell = findFirstUnvalidatedCellInWord(
+            cells,
+            st.validatedCells + st.hintRevealedCells,
+        ) ?: Pair(clue.startRow, clue.startCol)
 
         _state.value = st.copy(
             selectedRow = targetCell.first,
@@ -357,7 +381,11 @@ class CrosswordGameViewModel(
         if (st.selectedRow < 0 || st.selectedCol < 0) return
 
         val currentPos = Pair(st.selectedRow, st.selectedCol)
-        if (currentPos in st.validatedCells) {
+        if (HintRules.isProtected(
+                isValidated = currentPos in st.validatedCells,
+                isHintRevealed = currentPos in st.hintRevealedCells,
+            )
+        ) {
             advanceCursorToNextEditableCell()
             return
         }
@@ -390,7 +418,7 @@ class CrosswordGameViewModel(
         val nextPos = findNextEditableCell(
             current = currentPos,
             cellsInWord = st.activeCellsInWord,
-            validatedCells = newValidatedCells,
+            validatedCells = newValidatedCells + st.hintRevealedCells,
         )
 
         val newRow = nextPos?.first ?: st.selectedRow
@@ -419,11 +447,13 @@ class CrosswordGameViewModel(
 
         val currentPos = Pair(st.selectedRow, st.selectedCol)
 
-        if (currentPos in st.validatedCells) {
+        val protectedCells = st.validatedCells + st.hintRevealedCells
+
+        if (currentPos in protectedCells) {
             val prevPos = findPreviousEditableCell(
                 current = currentPos,
                 cellsInWord = st.activeCellsInWord,
-                validatedCells = st.validatedCells,
+                validatedCells = protectedCells,
             )
             if (prevPos != null) {
                 _state.value = st.copy(
@@ -459,10 +489,10 @@ class CrosswordGameViewModel(
             val prevPos = findPreviousEditableCell(
                 current = currentPos,
                 cellsInWord = st.activeCellsInWord,
-                validatedCells = st.validatedCells,
+                validatedCells = protectedCells,
             )
             if (prevPos != null) {
-                val newLetters = if (prevPos !in st.validatedCells) {
+                val newLetters = if (prevPos !in protectedCells) {
                     st.userLetters - prevPos
                 } else {
                     st.userLetters
@@ -480,46 +510,70 @@ class CrosswordGameViewModel(
     }
 
     // ──────────────────────────────────────────────────────────────────────────
-    // Reiniciar partida (Volver a Jugar)
+    // Sistema de pistas y reinicio confirmado
     // ──────────────────────────────────────────────────────────────────────────
 
-    fun onPlayAgain() {
+    fun canUseHint(): Boolean {
         val st = _state.value
-        val grid = st.grid ?: return
-        val board = st.board ?: return
+        val grid = st.grid ?: return false
+        val pos = Pair(st.selectedRow, st.selectedCol)
+        val cell = grid.cellAt(pos.first, pos.second) ?: return false
+        val expected = cell.solutionLetter?.uppercaseChar() ?: return false
+        val current = st.userLetters[pos]?.uppercaseChar()
+        return HintRules.canReveal(
+            isPlayable = cell.isActive,
+            currentLetter = current,
+            expectedLetter = expected,
+            isValidated = pos in st.validatedCells,
+            isAlreadyRevealed = pos in st.hintRevealedCells,
+        )
+    }
 
-        val allClues = getAllCluesOrdered(grid)
-        val firstClue = allClues.firstOrNull()
-        val startRow = firstClue?.startRow ?: 0
-        val startCol = firstClue?.startCol ?: 0
-        val startDir = firstClue?.direction ?: CruciluxDirection.HORIZONTAL
-        val (entryId, cells) = computeActiveWord(grid, startRow, startCol, startDir)
+    /** Aplica exactamente una pista válida. La UI confirma previamente desde la cuarta. */
+    fun useHint(): Boolean {
+        if (!canUseHint()) return false
+        val st = _state.value
+        val grid = st.grid ?: return false
+        val board = st.board ?: return false
+        val pos = Pair(st.selectedRow, st.selectedCol)
+        val expected = grid.cellAt(pos.first, pos.second)?.solutionLetter?.uppercaseChar() ?: return false
+        val newLetters = st.userLetters + (pos to expected)
+        val newHinted = st.hintRevealedCells + pos
+        val newHintsUsed = st.hintsUsed + 1
+        val (validatedIds, validatedCells) = computeValidatedState(grid, board, newLetters)
+        val completed = validatedIds.size == board.entries.size && board.entries.isNotEmpty()
+        val nextPos = findNextEditableCell(
+            current = pos,
+            cellsInWord = st.activeCellsInWord,
+            validatedCells = validatedCells + newHinted,
+        )
 
         _state.value = st.copy(
-            selectedRow = startRow,
-            selectedCol = startCol,
-            activeDirection = startDir,
-            activeEntryBankId = entryId,
-            activeCellsInWord = cells,
-            userLetters = emptyMap(),
-            validatedEntryBankIds = emptySet(),
-            validatedCells = emptySet(),
+            userLetters = newLetters,
+            selectedRow = nextPos?.first ?: st.selectedRow,
+            selectedCol = nextPos?.second ?: st.selectedCol,
+            hintsUsed = newHintsUsed,
+            hintRevealedCells = newHinted,
+            xpPossible = XpCalculator.finalXp(board.entries.size, st.checkMode, newHintsUsed),
+            validatedEntryBankIds = validatedIds,
+            validatedCells = validatedCells,
             incorrectCells = emptySet(),
-            isCompleted = false,
-            progressPercent = 0,
+            isCompleted = completed,
+            isReviewMode = false,
         )
+
+        if (completed) findNextBoard(board.category, board.id)
+        triggerAutosave()
+        return true
+    }
+
+    fun resetBoardAfterConfirmation(onReset: () -> Unit = {}) {
+        val board = _state.value.board ?: return
 
         viewModelScope.launch(Dispatchers.IO) {
             progressRepository?.resetBoardProgress(board.id, board.category)
+            withContext(Dispatchers.Main) { onReset() }
         }
-    }
-
-    fun onSetCheckMode(mode: CheckMode) {
-        _state.value = _state.value.copy(
-            checkMode = mode,
-            incorrectCells = emptySet(),
-        )
-        triggerAutosave()
     }
 
     fun saveSessionNow() {
@@ -606,7 +660,11 @@ class CrosswordGameViewModel(
     private fun advanceCursorToNextEditableCell() {
         val st = _state.value
         val currentPos = Pair(st.selectedRow, st.selectedCol)
-        val next = findNextEditableCell(currentPos, st.activeCellsInWord, st.validatedCells)
+        val next = findNextEditableCell(
+            currentPos,
+            st.activeCellsInWord,
+            st.validatedCells + st.hintRevealedCells,
+        )
         if (next != null) {
             _state.value = st.copy(
                 selectedRow = next.first,
@@ -669,36 +727,56 @@ class CrosswordGameViewModel(
     private fun triggerAutosave() {
         val st = _state.value
         val board = st.board ?: return
+        val shouldAwardCompletion = st.isCompleted && !st.isReviewMode && !completionSubmitted
+        if (shouldAwardCompletion) completionSubmitted = true
 
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                progressRepository?.saveProgress(
-                    boardId = board.id,
-                    category = board.category,
-                    userLetters = st.userLetters,
-                    grid = st.grid,
-                    selectedRow = st.selectedRow,
-                    selectedCol = st.selectedCol,
-                    selectedDirection = st.activeDirection,
-                    checkMode = st.checkMode,
-                    isCompletedOverride = st.isCompleted,
-                )
+                saveMutex.withLock {
+                    val latest = _state.value
+                    val latestBoard = latest.board ?: return@withLock
+                    if (latestBoard.id != board.id) return@withLock
 
-                sessionManager?.saveSession(
-                    GameSessionState(
-                        boardId = board.id,
-                        category = board.category,
-                        boardSize = board.size,
-                        selectedRow = st.selectedRow,
-                        selectedCol = st.selectedCol,
-                        activeDirection = if (st.activeDirection == CruciluxDirection.VERTICAL) "V" else "H",
-                        checkMode = if (st.checkMode == CheckMode.ASSISTED) "ASSISTED" else "CLASSIC",
-                        userLetters = st.userLetters,
-                        isFinished = st.isCompleted,
-                        lastUpdatedMs = System.currentTimeMillis(),
+                    val completionResult = progressRepository?.saveProgress(
+                        boardId = latestBoard.id,
+                        category = latestBoard.category,
+                        userLetters = latest.userLetters,
+                        grid = latest.grid,
+                        selectedRow = latest.selectedRow,
+                        selectedCol = latest.selectedCol,
+                        selectedDirection = latest.activeDirection,
+                        checkMode = latest.checkMode,
+                        hintsUsed = latest.hintsUsed,
+                        hintRevealedCells = latest.hintRevealedCells,
+                        isCompletedOverride = latest.isCompleted,
+                        awardCompletion = shouldAwardCompletion,
+                        xpFinal = latest.xpPossible,
                     )
-                )
+
+                    if (completionResult != null) {
+                        _state.value = _state.value.copy(
+                            completionResult = completionResult,
+                            bestXpEarned = completionResult.bestXpEarned,
+                        )
+                    }
+
+                    sessionManager?.saveSession(
+                        GameSessionState(
+                            boardId = latestBoard.id,
+                            category = latestBoard.category,
+                            boardSize = latestBoard.size,
+                            selectedRow = latest.selectedRow,
+                            selectedCol = latest.selectedCol,
+                            activeDirection = if (latest.activeDirection == CruciluxDirection.VERTICAL) "V" else "H",
+                            checkMode = if (latest.checkMode == CheckMode.ASSISTED) "ASSISTED" else "CLASSIC",
+                            userLetters = latest.userLetters,
+                            isFinished = latest.isCompleted,
+                            lastUpdatedMs = System.currentTimeMillis(),
+                        )
+                    )
+                }
             } catch (e: Exception) {
+                if (shouldAwardCompletion) completionSubmitted = false
                 // Autoguardado silencioso
             }
         }

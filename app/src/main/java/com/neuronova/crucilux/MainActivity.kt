@@ -61,11 +61,28 @@ private fun CruciluxApp(
                 CruciluxBottomBar(
                     currentRoute = currentRoute,
                     onNavigate   = { screen: Screen ->
-                        navController.navigate(screen.route) {
-                            // Vuelve al inicio sin acumular destinos en la pila
-                            popUpTo(Screen.Home.route) { saveState = true }
-                            launchSingleTop = true
-                            restoreState    = true
+                        if (screen.route != currentRoute) {
+                            if (screen == Screen.Home) {
+                                // Inicio es la raíz real de la navegación principal. Al volver
+                                // se elimina cualquier destino superior y nunca se restaura una
+                                // copia guardada de Jugar/Progreso encima de Inicio.
+                                val returnedHome = navController.popBackStack(
+                                    route = Screen.Home.route,
+                                    inclusive = false,
+                                )
+                                if (!returnedHome) {
+                                    navController.navigate(Screen.Home.route) {
+                                        popUpTo(navController.graph.id)
+                                        launchSingleTop = true
+                                    }
+                                }
+                            } else {
+                                navController.navigate(screen.route) {
+                                    popUpTo(Screen.Home.route) { saveState = true }
+                                    launchSingleTop = true
+                                    restoreState = true
+                                }
+                            }
                         }
                     },
                 )

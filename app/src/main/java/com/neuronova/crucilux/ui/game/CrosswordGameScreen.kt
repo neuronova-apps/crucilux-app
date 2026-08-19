@@ -1,7 +1,6 @@
 ﻿package com.neuronova.crucilux.ui.game
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,6 +18,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.EmojiEvents
+import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -36,12 +36,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -51,9 +53,13 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.neuronova.crucilux.data.GameSessionManager
 import com.neuronova.crucilux.data.repository.CrosswordProgressRepository
+import com.neuronova.crucilux.data.db.CrosswordBoardStatus
 import com.neuronova.crucilux.model.CrosswordClue
 import com.neuronova.crucilux.model.CruciluxDirection
 import com.neuronova.crucilux.ui.theme.SuccessGreen
+import com.neuronova.crucilux.ui.components.ModeSelectionDialog
+import kotlinx.coroutines.launch
+import com.neuronova.crucilux.progression.HintRules
 
 /**
  * Pantalla interactiva de juego de Crucilux con persistencia Room multi-tablero.
@@ -74,6 +80,10 @@ fun CrosswordGameScreen(
     val context = LocalContext.current
     val progressRepository = remember { CrosswordProgressRepository.getInstance(context) }
     val sessionManager = remember { GameSessionManager.getInstance(context) }
+    val coroutineScope = rememberCoroutineScope()
+    var showAdditionalHintDialog by remember { mutableStateOf(false) }
+    var showResetDialog by remember { mutableStateOf(false) }
+    var pendingNextBoardId by remember { mutableStateOf<String?>(null) }
     val viewModel: CrosswordGameViewModel = viewModel(
         factory = CrosswordGameViewModel.factory(progressRepository, sessionManager)
     )
@@ -93,7 +103,13 @@ fun CrosswordGameScreen(
         GameHeader(
             category = state.board?.category ?: "",
             checkMode = state.checkMode,
-            onSetCheckMode = { viewModel.onSetCheckMode(it) },
+            hintsUsed = state.hintsUsed,
+            xpPossible = state.xpPossible,
+            hintEnabled = !state.isCompleted && viewModel.canUseHint(),
+            onHint = {
+                if (HintRules.requiresAdditionalConfirmation(state.hintsUsed)) showAdditionalHintDialog = true
+                else viewModel.useHint()
+            },
             onVolver = {
                 viewModel.saveSessionNow()
                 onVolver()
@@ -164,6 +180,7 @@ fun CrosswordGameScreen(
                         activeCellsInWord = state.activeCellsInWord,
                         userLetters = state.userLetters,
                         validatedCells = state.validatedCells,
+                        hintRevealedCells = state.hintRevealedCells,
                         incorrectCells = state.incorrectCells,
                         onCellTapped = { r, c -> viewModel.onCellTapped(r, c) },
                         modifier = Modifier.fillMaxWidth(),
@@ -192,15 +209,75 @@ fun CrosswordGameScreen(
         CompletionDialog(
             totalEntries = state.board?.entries?.size ?: 0,
             nextBoardId = state.nextBoardId,
+            completionResult = state.completionResult,
+            bestXpEarned = state.bestXpEarned,
             onNextBoard = { nextId ->
-                viewModel.saveSessionNow()
-                onNavigateToNextBoard(nextId)
+                coroutineScope.launch {
+                    val progress = progressRepository.getProgress(nextId)
+                    if (progress.status == CrosswordBoardStatus.NOT_STARTED) {
+                        pendingNextBoardId = nextId
+                    } else {
+                        onNavigateToNextBoard(nextId)
+                    }
+                }
             },
             onViewBoards = {
                 viewModel.saveSessionNow()
                 onVolver()
             },
-            onPlayAgain = { viewModel.onPlayAgain() },
+            onVolver = onVolver,
+            onRequestReset = { showResetDialog = true },
+        )
+    }
+
+    if (showAdditionalHintDialog) {
+        AlertDialog(
+            onDismissRequest = { showAdditionalHintDialog = false },
+            title = { Text("Pista adicional") },
+            text = { Text("Ya utilizaste las 3 pistas iniciales. Esta ayuda tendrá una penalización mayor de XP.") },
+            confirmButton = {
+                Button(onClick = {
+                    showAdditionalHintDialog = false
+                    viewModel.useHint()
+                }) { Text("Usar pista") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAdditionalHintDialog = false }) { Text("Cancelar") }
+            },
+        )
+    }
+
+    if (showResetDialog) {
+        AlertDialog(
+            onDismissRequest = { showResetDialog = false },
+            title = { Text("Reiniciar tablero") },
+            text = { Text("Se borrarán las letras y pistas de esta partida. Podrás elegir modalidad de nuevo.") },
+            confirmButton = {
+                Button(onClick = {
+                    showResetDialog = false
+                    viewModel.resetBoardAfterConfirmation(onReset = onVolver)
+                }) { Text("Reiniciar") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showResetDialog = false }) { Text("Cancelar") }
+            },
+        )
+    }
+
+    pendingNextBoardId?.let { nextId ->
+        ModeSelectionDialog(
+            onSelect = { mode ->
+                coroutineScope.launch {
+                    val nextBoard = com.neuronova.crucilux.data.bank.CruciluxBankRepository
+                        .getInstance().getBoardById(nextId)
+                    if (nextBoard != null) {
+                        progressRepository.startBoard(nextId, nextBoard.category, mode)
+                        pendingNextBoardId = null
+                        onNavigateToNextBoard(nextId)
+                    }
+                }
+            },
+            onDismiss = { pendingNextBoardId = null },
         )
     }
 }
@@ -213,95 +290,90 @@ fun CrosswordGameScreen(
 private fun GameHeader(
     category: String,
     checkMode: CheckMode,
-    onSetCheckMode: (CheckMode) -> Unit,
+    hintsUsed: Int,
+    xpPossible: Int,
+    hintEnabled: Boolean,
+    onHint: () -> Unit,
     onVolver: () -> Unit,
 ) {
-    Row(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 8.dp, vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        IconButton(
-            onClick = onVolver,
-            modifier = Modifier.semantics { contentDescription = "Volver" },
-        ) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onBackground,
-            )
-        }
-
-        Text(
-            text = category.ifBlank { "Crucigrama" },
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onBackground,
-            modifier = Modifier.weight(1f),
-        )
-
-        CompactCheckModeToggle(
-            checkMode = checkMode,
-            onSetCheckMode = onSetCheckMode,
-        )
-    }
-}
-
-@Composable
-private fun CompactCheckModeToggle(
-    checkMode: CheckMode,
-    onSetCheckMode: (CheckMode) -> Unit,
-) {
-    Surface(
-        shape = RoundedCornerShape(20.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
     ) {
         Row(
-            modifier = Modifier.padding(3.dp),
-            horizontalArrangement = Arrangement.spacedBy(2.dp),
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            CheckModeChip(
-                label = "Clásica",
-                isSelected = checkMode == CheckMode.CLASSIC,
-                onClick = { onSetCheckMode(CheckMode.CLASSIC) },
+            IconButton(
+                onClick = onVolver,
+                modifier = Modifier.semantics { contentDescription = "Volver" },
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onBackground,
+                )
+            }
+
+            Text(
+                text = category.ifBlank { "Crucigrama" },
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.weight(1f),
             )
-            CheckModeChip(
-                label = "Asistida",
-                isSelected = checkMode == CheckMode.ASSISTED,
-                onClick = { onSetCheckMode(CheckMode.ASSISTED) },
+
+            Text(
+                text = if (checkMode == CheckMode.CLASSIC) "Clásica" else "Asistida",
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier
+                    .semantics { contentDescription = "Modo de partida bloqueado: ${if (checkMode == CheckMode.CLASSIC) "Clásica" else "Asistida"}" },
             )
         }
-    }
-}
 
-@Composable
-private fun CheckModeChip(
-    label: String,
-    isSelected: Boolean,
-    onClick: () -> Unit,
-) {
-    Box(
-        modifier = Modifier
-            .clip(RoundedCornerShape(16.dp))
-            .background(
-                if (isSelected) MaterialTheme.colorScheme.primary
-                else androidx.compose.ui.graphics.Color.Transparent
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            val initialDots = (0 until 3).joinToString(" ") { index ->
+                if (index < hintsUsed.coerceAtMost(3)) "○" else "●"
+            }
+            Text(
+                text = "Pistas: $initialDots",
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.semantics {
+                    contentDescription = "Pistas usadas: $hintsUsed. Pistas iniciales restantes: ${(3 - hintsUsed).coerceAtLeast(0)}"
+                },
             )
-            .clickable(role = Role.RadioButton, onClick = onClick)
-            .padding(horizontal = 10.dp, vertical = 4.dp)
-            .semantics {
-                contentDescription = "Modo $label, ${if (isSelected) "activo" else "inactivo"}"
-            },
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(
-            text = label,
-            fontSize = 12.sp,
-            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-            color = if (isSelected) MaterialTheme.colorScheme.onPrimary
-            else MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+            Text(
+                text = "XP posibles: $xpPossible",
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.weight(1f),
+            )
+            OutlinedButton(
+                onClick = onHint,
+                enabled = hintEnabled,
+                modifier = Modifier.height(34.dp),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 10.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Lightbulb,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp),
+                )
+                Spacer(Modifier.width(4.dp))
+                Text("Pista", fontSize = 12.sp)
+            }
+        }
     }
 }
 
@@ -434,9 +506,12 @@ private fun ActiveClueNavigationCard(
 private fun CompletionDialog(
     totalEntries: Int,
     nextBoardId: String?,
+    completionResult: com.neuronova.crucilux.data.repository.BoardCompletionResult?,
+    bestXpEarned: Int,
     onNextBoard: (nextBoardId: String) -> Unit,
     onViewBoards: () -> Unit,
-    onPlayAgain: () -> Unit,
+    onVolver: () -> Unit,
+    onRequestReset: () -> Unit,
 ) {
     val isCategoryFinished = nextBoardId == null
 
@@ -480,6 +555,29 @@ private fun CompletionDialog(
                     color = SuccessGreen,
                     textAlign = TextAlign.Center,
                 )
+                if (completionResult != null) {
+                    Text(
+                        text = "XP obtenido: +${completionResult.xpAwarded}",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                    Text(
+                        text = if (completionResult.isNewBest) {
+                            "Nueva mejor puntuación: ${completionResult.bestXpEarned} XP"
+                        } else {
+                            "Mejor XP del tablero: ${completionResult.bestXpEarned}"
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        textAlign = TextAlign.Center,
+                    )
+                } else {
+                    Text(
+                        text = "Mejor XP del tablero: $bestXpEarned",
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
             }
         },
         confirmButton = {
@@ -512,13 +610,17 @@ private fun CompletionDialog(
                 ) {
                     Text("Ver tableros")
                 }
+
+                TextButton(onClick = onRequestReset) {
+                    Text("Reiniciar tablero")
+                }
             }
         },
         dismissButton = {
             TextButton(
-                onClick = onPlayAgain,
+                onClick = onVolver,
             ) {
-                Text("Volver a Jugar")
+                Text("Volver")
             }
         },
     )

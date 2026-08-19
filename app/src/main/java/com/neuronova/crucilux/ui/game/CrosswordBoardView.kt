@@ -55,6 +55,7 @@ fun CrosswordBoardView(
     activeCellsInWord: Set<Pair<Int, Int>> = emptySet(),
     userLetters: Map<Pair<Int, Int>, Char> = emptyMap(),
     validatedCells: Set<Pair<Int, Int>> = emptySet(),
+    hintRevealedCells: Set<Pair<Int, Int>> = emptySet(),
     incorrectCells: Set<Pair<Int, Int>> = emptySet(),
     onCellTapped: (row: Int, col: Int) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier,
@@ -100,6 +101,7 @@ fun CrosswordBoardView(
                         val isInActiveWord = activeCellsInWord.contains(Pair(row, col))
                         val isValidated = validatedCells.contains(Pair(row, col))
                         val isIncorrect = incorrectCells.contains(Pair(row, col))
+                        val isHintRevealed = hintRevealedCells.contains(Pair(row, col))
                         val letter = userLetters[Pair(row, col)]
 
                         CrosswordCellView(
@@ -111,6 +113,7 @@ fun CrosswordBoardView(
                             isInActiveWord = isInActiveWord,
                             isValidated = isValidated,
                             isIncorrect = isIncorrect,
+                            isHintRevealed = isHintRevealed,
                             userLetter = letter,
                             activeDirection = activeDirection,
                             onCellTapped = { onCellTapped(row, col) },
@@ -135,6 +138,7 @@ private fun CrosswordCellView(
     isInActiveWord: Boolean,
     isValidated: Boolean,
     isIncorrect: Boolean,
+    isHintRevealed: Boolean,
     userLetter: Char?,
     activeDirection: CruciluxDirection,
     onCellTapped: () -> Unit,
@@ -162,6 +166,8 @@ private fun CrosswordCellView(
     // 5. Normal -> Superficie estándar
     val backgroundColor = when {
         isIncorrect -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.65f)
+        isHintRevealed && isSelected -> MaterialTheme.colorScheme.tertiaryContainer
+        isHintRevealed -> MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.65f)
         isValidated && isSelected -> SuccessGreen.copy(alpha = 0.35f)
         isValidated -> SuccessGreen.copy(alpha = 0.22f)
         isSelected -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.85f)
@@ -171,6 +177,7 @@ private fun CrosswordCellView(
 
     val borderColor = when {
         isIncorrect -> MaterialTheme.colorScheme.error
+        isHintRevealed -> MaterialTheme.colorScheme.tertiary
         isSelected -> MaterialTheme.colorScheme.primary
         isValidated -> SuccessGreen.copy(alpha = 0.75f)
         isInActiveWord -> MaterialTheme.colorScheme.primary.copy(alpha = 0.55f)
@@ -180,7 +187,7 @@ private fun CrosswordCellView(
     val borderWidth = when {
         isSelected -> 2.dp
         isIncorrect -> 1.5.dp
-        isValidated -> 1.2.dp
+        isValidated || isHintRevealed -> 1.2.dp
         isInActiveWord -> 1.dp
         else -> 0.5.dp
     }
@@ -204,6 +211,7 @@ private fun CrosswordCellView(
         if (isValidated) {
             append(", palabra validada")
         }
+        if (isHintRevealed) append(", letra revelada y protegida por pista")
         if (userLetter != null) {
             append(", letra $userLetter")
         } else {
@@ -252,6 +260,20 @@ private fun CrosswordCellView(
                     color = letterColor,
                     textAlign = TextAlign.Center,
                 ),
+            )
+        }
+
+        if (isHintRevealed) {
+            Text(
+                text = "★",
+                style = TextStyle(
+                    fontSize = clueNumberSp,
+                    fontWeight = FontWeight.Black,
+                    color = MaterialTheme.colorScheme.tertiary,
+                ),
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .offset(x = (-1).dp, y = (-0.5).dp),
             )
         }
     }

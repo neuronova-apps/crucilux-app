@@ -54,6 +54,8 @@ import com.neuronova.crucilux.data.repository.GlobalProgressStats
 import com.neuronova.crucilux.ui.theme.ProgressBlue
 import com.neuronova.crucilux.ui.theme.StreakOrange
 import com.neuronova.crucilux.ui.theme.SuccessGreen
+import com.neuronova.crucilux.progression.PlayerProgress
+import com.neuronova.crucilux.ui.components.PlayerLevelCard
 
 private data class MedalItem(
     val id: String,
@@ -102,7 +104,7 @@ private val medalsList = listOf(
     MedalItem(
         id = "master_solver",
         name = "Maestro de Letras",
-        condition = "Completa en dificultad Difícil",
+        condition = "Completa 30 crucigramas",
         initialLetter = "L",
         isUnlocked = false,
     ),
@@ -114,6 +116,8 @@ fun ProgressScreen() {
     val progressRepository = remember { CrosswordProgressRepository.getInstance(context) }
     val globalStats by progressRepository.observeGlobalStats()
         .collectAsState(initial = GlobalProgressStats())
+    val playerProgress by progressRepository.observePlayerProgress()
+        .collectAsState(initial = PlayerProgress())
     val categories = GameConfigProvider.categories
 
     Column(
@@ -139,6 +143,16 @@ fun ProgressScreen() {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+
+        PlayerLevelCard(
+            progress = playerProgress,
+            detailed = true,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp),
+        )
+
+        Spacer(Modifier.height(14.dp))
 
         // Fila de tarjetas de resumen
         Row(

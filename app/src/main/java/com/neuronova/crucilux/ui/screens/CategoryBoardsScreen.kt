@@ -35,6 +35,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -53,6 +54,9 @@ import com.neuronova.crucilux.data.repository.CrosswordProgressRepository
 import com.neuronova.crucilux.model.CruciluxBoard
 import com.neuronova.crucilux.ui.theme.ProgressBlue
 import com.neuronova.crucilux.ui.theme.SuccessGreen
+import com.neuronova.crucilux.ui.components.ModeSelectionDialog
+import kotlinx.coroutines.launch
+import com.neuronova.crucilux.progression.GameStartRules
 
 /**
  * Pantalla que muestra la colección de los 30 tableros de una categoría temática.
@@ -67,6 +71,8 @@ fun CategoryBoardsScreen(
     val context = LocalContext.current
     val bankRepository = remember { CruciluxBankRepository.getInstance() }
     val progressRepository = remember { CrosswordProgressRepository.getInstance(context) }
+    val coroutineScope = rememberCoroutineScope()
+    var pendingBoard by remember { mutableStateOf<CruciluxBoard?>(null) }
 
     // Tableros de la categoría en orden determinista
     val allCategoryBoards = remember(category) {
@@ -152,10 +158,32 @@ fun CategoryBoardsScreen(
                     index = stableIndex,
                     board = board,
                     progress = progress,
-                    onClick = { onSelectBoard(board.id) },
+                    onClick = {
+                        coroutineScope.launch {
+                            val latest = progressRepository.getProgress(board.id)
+                            if (GameStartRules.shouldRequestMode(latest.status)) {
+                                pendingBoard = board
+                            } else {
+                                onSelectBoard(board.id)
+                            }
+                        }
+                    },
                 )
             }
         }
+    }
+
+    pendingBoard?.let { board ->
+        ModeSelectionDialog(
+            onSelect = { mode ->
+                coroutineScope.launch {
+                    progressRepository.startBoard(board.id, board.category, mode)
+                    pendingBoard = null
+                    onSelectBoard(board.id)
+                }
+            },
+            onDismiss = { pendingBoard = null },
+        )
     }
 }
 
@@ -380,6 +408,16 @@ private fun BoardCardItem(
                 fontSize = 10.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f),
             )
+
+            if (progress.bestXpEarned > 0) {
+                Text(
+                    text = "Mejor ${progress.bestXpEarned} XP",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
         }
     }
 }
