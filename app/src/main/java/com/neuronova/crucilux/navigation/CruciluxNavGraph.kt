@@ -10,6 +10,7 @@ import androidx.navigation.navArgument
 import com.neuronova.crucilux.data.GameConfigProvider
 import com.neuronova.crucilux.data.UserPreferences
 import com.neuronova.crucilux.data.UserPreferencesManager
+import com.neuronova.crucilux.ui.game.CrosswordGameScreen
 import com.neuronova.crucilux.ui.screens.AboutScreen
 import com.neuronova.crucilux.ui.screens.GameSetupReadyScreen
 import com.neuronova.crucilux.ui.screens.HomeScreen
@@ -29,6 +30,11 @@ sealed class Screen(val route: String) {
     object GameSetupReady : Screen("game_setup_ready/{category}/{size}") {
         fun createRoute(category: String, size: String): String {
             return "game_setup_ready/$category/$size"
+        }
+    }
+    object Game : Screen("game/{boardId}") {
+        fun createRoute(boardId: String): String {
+            return "game/$boardId"
         }
     }
 }
@@ -67,6 +73,11 @@ fun CruciluxNavGraph(
                 userName = userPreferences.userName,
                 onComenzar = {
                     navController.navigate(Screen.Play.route) {
+                        launchSingleTop = true
+                    }
+                },
+                onContinuar = { boardId ->
+                    navController.navigate(Screen.Game.createRoute(boardId)) {
                         launchSingleTop = true
                     }
                 },
@@ -121,6 +132,25 @@ fun CruciluxNavGraph(
             GameSetupReadyScreen(
                 category = category,
                 size = size,
+                onVolver = {
+                    navController.popBackStack()
+                },
+                onIniciar = { boardId ->
+                    navController.navigate(Screen.Game.createRoute(boardId)) {
+                        launchSingleTop = true
+                    }
+                },
+            )
+        }
+        composable(
+            route = Screen.Game.route,
+            arguments = listOf(
+                navArgument("boardId") { type = NavType.StringType },
+            ),
+        ) { backStackEntry ->
+            val boardId = backStackEntry.arguments?.getString("boardId") ?: ""
+            CrosswordGameScreen(
+                boardId = boardId,
                 onVolver = {
                     navController.popBackStack()
                 },

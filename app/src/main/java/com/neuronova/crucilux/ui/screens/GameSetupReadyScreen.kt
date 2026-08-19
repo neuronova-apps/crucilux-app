@@ -28,34 +28,51 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.neuronova.crucilux.data.GameSessionManager
+import com.neuronova.crucilux.data.GameSessionState
 import com.neuronova.crucilux.data.bank.CruciluxBankRepository
 import com.neuronova.crucilux.ui.theme.SuccessGreen
+import kotlinx.coroutines.launch
 
 /**
  * Pantalla de confirmación "Partida preparada".
  * Muestra el resumen de la configuración seleccionada por el usuario (Categoría y Tamaño)
  * y el tablero asignado desde el banco maestro validado.
- * No implementa tablero interactivo todavía.
  */
 @Composable
 fun GameSetupReadyScreen(
     category: String,
     size: String,
     onVolver: () -> Unit,
+    onIniciar: (boardId: String) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
+    val context = LocalContext.current
+    val sessionManager = remember { GameSessionManager.getInstance(context) }
+    val sessionState by sessionManager.sessionFlow.collectAsState(initial = GameSessionState())
+    val coroutineScope = rememberCoroutineScope()
+    var showOverwriteDialog by remember { mutableStateOf(false) }
+
     val repository = remember { CruciluxBankRepository.getInstance() }
     val assignedBoard = remember(category, size) {
         repository.obtenerCrucigrama(category, size)
@@ -161,25 +178,98 @@ fun GameSetupReadyScreen(
 
         Spacer(Modifier.height(16.dp))
 
-        // Tarjeta informativa de estado de desarrollo
-        Card(
-            modifier = Modifier.fillMaxWidth(),
+        // Botón principal: Iniciar partida
+        Button(
+            onClick = {
+                if (assignedBoard != null) {
+                    if (sessionState.hasActiveSession && sessionState.boardId != assignedBoard.id) {
+                        showOverwriteDialog = true
+                    } else {
+                        onIniciar(assignedBoard.id)
+                    }
+                }
+            },
+            enabled = assignedBoard != null,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(52.dp)
+                .semantics {
+                    contentDescription = if (assignedBoard != null) {
+                        "Iniciar partida del tablero ${assignedBoard.id}"
+                    } else {
+                        "Iniciar partida, cargando tablero"
+                    }
+                },
             shape = RoundedCornerShape(14.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
+                disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
             ),
-            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         ) {
             Text(
-                text = "La generación interactiva del crucigrama se integrará con el motor del juego en la siguiente etapa.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.primary,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(14.dp),
+                text = "Iniciar partida",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                fontSize = 16.sp,
             )
         }
 
-        Spacer(Modifier.height(28.dp))
+        // Diálogo de confirmación antes de sobrescribir partida guardada
+        if (showOverwriteDialog && assignedBoard != null) {
+            AlertDialog(
+                onDismissRequest = { showOverwriteDialog = false },
+                title = {
+                    Text(
+                        text = "Partida en curso",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                    )
+                },
+                text = {
+                    Text(
+                        text = "Ya tienes una partida guardada (${sessionState.category.ifBlank { "Crucigrama" }} · ${sessionState.boardSize}).\n\n¿Deseas continuar con tu partida anterior o iniciar esta nueva partida? Iniciar una nueva reemplazará el guardado previo.",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            showOverwriteDialog = false
+                            coroutineScope.launch {
+                                sessionManager.clearSession()
+                                onIniciar(assignedBoard.id)
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                        ),
+                    ) {
+                        Text("Iniciar nueva")
+                    }
+                },
+                dismissButton = {
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        TextButton(
+                            onClick = { showOverwriteDialog = false },
+                        ) {
+                            Text("Cancelar")
+                        }
+                        TextButton(
+                            onClick = {
+                                showOverwriteDialog = false
+                                onIniciar(sessionState.boardId)
+                            },
+                        ) {
+                            Text("Continuar partida")
+                        }
+                    }
+                },
+            )
+        }
+
+        Spacer(Modifier.height(12.dp))
 
         // Botón Volver
         Button(
@@ -190,8 +280,8 @@ fun GameSetupReadyScreen(
                 .semantics { contentDescription = "Volver a la configuración de partida" },
             shape = RoundedCornerShape(14.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary,
+                containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
             ),
         ) {
             Icon(

@@ -23,6 +23,7 @@ data class UserPreferences(
     val isDarkMode: Boolean = false,
     val isHighContrast: Boolean = false,
     val seasonalThemesEnabled: Boolean = true,
+    val defaultCheckMode: String = "CLASSIC",
 )
 
 /**
@@ -40,6 +41,7 @@ class UserPreferencesManager(private val context: Context) {
         private val KEY_IS_DARK_MODE = booleanPreferencesKey("is_dark_mode")
         private val KEY_IS_HIGH_CONTRAST = booleanPreferencesKey("is_high_contrast")
         private val KEY_SEASONAL_THEMES_ENABLED = booleanPreferencesKey("seasonal_themes_enabled")
+        private val KEY_DEFAULT_CHECK_MODE = stringPreferencesKey("default_check_mode")
 
         @Volatile
         private var INSTANCE: UserPreferencesManager? = null
@@ -65,6 +67,7 @@ class UserPreferencesManager(private val context: Context) {
                 isDarkMode = preferences[KEY_IS_DARK_MODE] ?: false, // Modo día por defecto
                 isHighContrast = preferences[KEY_IS_HIGH_CONTRAST] ?: false,
                 seasonalThemesEnabled = preferences[KEY_SEASONAL_THEMES_ENABLED] ?: true, // Activado por defecto
+                defaultCheckMode = preferences[KEY_DEFAULT_CHECK_MODE] ?: "CLASSIC",
             )
         }
 
@@ -112,6 +115,15 @@ class UserPreferencesManager(private val context: Context) {
     suspend fun setSeasonalThemesEnabled(enabled: Boolean) {
         context.dataStore.edit { preferences ->
             preferences[KEY_SEASONAL_THEMES_ENABLED] = enabled
+        }
+    }
+
+    /**
+     * Guarda el modo de comprobación de respuestas predeterminado ("CLASSIC" o "ASSISTED").
+     */
+    suspend fun setDefaultCheckMode(mode: String) {
+        context.dataStore.edit { preferences ->
+            preferences[KEY_DEFAULT_CHECK_MODE] = mode
         }
     }
 }

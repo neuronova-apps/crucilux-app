@@ -49,6 +49,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalContext
+import com.neuronova.crucilux.data.GameSessionManager
+import com.neuronova.crucilux.data.GameSessionState
 import com.neuronova.crucilux.ui.theme.ProgressBlue
 import com.neuronova.crucilux.ui.theme.StreakOrange
 import com.neuronova.crucilux.ui.theme.SuccessGreen
@@ -57,8 +64,13 @@ import com.neuronova.crucilux.ui.theme.SuccessGreen
 fun HomeScreen(
     userName: String = "",
     onComenzar: () -> Unit,
+    onContinuar: (boardId: String) -> Unit = {},
     onOpenSettings: () -> Unit = {},
 ) {
+    val context = LocalContext.current
+    val sessionManager = remember { GameSessionManager.getInstance(context) }
+    val sessionState by sessionManager.sessionFlow.collectAsState(initial = GameSessionState())
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -88,6 +100,18 @@ fun HomeScreen(
 
         Spacer(Modifier.height(14.dp))
 
+        // Tarjeta "Continuar partida" si existe una partida guardada en curso
+        if (sessionState.hasActiveSession) {
+            ContinueGameCard(
+                session = sessionState,
+                onContinuar = { onContinuar(sessionState.boardId) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp),
+            )
+            Spacer(Modifier.height(12.dp))
+        }
+
         // Botón de acción principal
         Button(
             onClick   = onComenzar,
@@ -107,7 +131,7 @@ fun HomeScreen(
             ),
         ) {
             Text(
-                text       = "Comenzar",
+                text       = if (sessionState.hasActiveSession) "Nueva partida" else "Comenzar",
                 style      = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 fontSize   = 16.sp,
@@ -572,4 +596,81 @@ private fun SettingsEntryCard(
         }
     }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Tarjeta "Continuar partida" activa
+// ─────────────────────────────────────────────────────────────────────────────
+
+@Composable
+private fun ContinueGameCard(
+    session: GameSessionState,
+    onContinuar: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Card(
+        modifier = modifier
+            .clip(RoundedCornerShape(16.dp))
+            .clickable(role = Role.Button, onClick = onContinuar)
+            .semantics {
+                contentDescription = "Continuar partida de ${session.category}, ${session.boardSize}, ${session.filledCellCount} celdas llenadas"
+            },
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f),
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = CardDefaults.outlinedCardBorder().copy(
+            brush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.primary),
+            width = 1.5.dp,
+        ),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.primary),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.PlayArrow,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onPrimary,
+                        modifier = Modifier.size(24.dp),
+                    )
+                }
+                Column {
+                    Text(
+                        text = "Continuar partida",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Text(
+                        text = "${session.category.ifBlank { "Crucigrama" }} · ${session.boardSize} (${session.filledCellCount} celdas llenadas)",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.ArrowForwardIos,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(16.dp),
+            )
+        }
+    }
+}
+
 

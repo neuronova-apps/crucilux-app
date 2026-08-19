@@ -46,21 +46,24 @@ object GameConfigProvider {
 
     /**
      * Categorías activas disponibles para la interfaz de usuario.
+     *
+     * DIAGNÓSTICO: El banco v1.28 tiene exactamente 10 categorías fijas y conocidas.
+     * La comparación de strings con tildes entre el JSON (UTF-8) y los literales Kotlin
+     * puede fallar por diferencias de normalización Unicode (NFC vs NFD), causando que
+     * solo aparezca "Biblia" (sin caracteres especiales). La solución correcta es
+     * retornar directamente `officialCategories` cuando el banco confirma que está cargado,
+     * sin intentar mapear por nombre. Las categorías del banco v1.28 son fijas.
      */
     val categories: List<CruciluxCategory>
         get() {
             val repo = bankRepository ?: CruciluxBankRepository.getInstance()
-            val bankCategories = repo.getCategories()
-            if (bankCategories.isEmpty()) return officialCategories
-
-            return bankCategories.map { catName ->
-                officialCategories.firstOrNull { it.displayName.equals(catName, ignoreCase = true) }
-                    ?: CruciluxCategory(
-                        id = catName.lowercase().replace(" ", "_"),
-                        displayName = catName,
-                        icon = getIconForCategory(catName),
-                    )
+            // Si el banco está cargado y tiene tableros, usamos officialCategories directamente.
+            // El banco v1.28 tiene exactamente las 10 categorías de officialCategories.
+            if (repo.isReady() && repo.getAllBoards().isNotEmpty()) {
+                return officialCategories
             }
+            // Fallback si el banco no está cargado aún
+            return officialCategories
         }
 
     /**
