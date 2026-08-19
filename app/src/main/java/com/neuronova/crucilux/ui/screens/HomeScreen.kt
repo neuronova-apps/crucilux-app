@@ -1,4 +1,4 @@
-package com.neuronova.crucilux.ui.screens
+﻿package com.neuronova.crucilux.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.CheckCircleOutline
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.PieChart
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -36,12 +37,17 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -49,13 +55,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
-import androidx.compose.ui.platform.LocalContext
 import com.neuronova.crucilux.data.GameSessionManager
-import com.neuronova.crucilux.data.GameSessionState
+import com.neuronova.crucilux.data.db.CrosswordBoardStatus
+import com.neuronova.crucilux.data.db.CrosswordProgressEntity
+import com.neuronova.crucilux.data.repository.CrosswordProgressRepository
+import com.neuronova.crucilux.data.repository.GlobalProgressStats
 import com.neuronova.crucilux.ui.theme.ProgressBlue
 import com.neuronova.crucilux.ui.theme.StreakOrange
 import com.neuronova.crucilux.ui.theme.SuccessGreen
@@ -68,8 +72,24 @@ fun HomeScreen(
     onOpenSettings: () -> Unit = {},
 ) {
     val context = LocalContext.current
+    val progressRepository = remember { CrosswordProgressRepository.getInstance(context) }
     val sessionManager = remember { GameSessionManager.getInstance(context) }
-    val sessionState by sessionManager.sessionFlow.collectAsState(initial = GameSessionState())
+
+    // Migración legacy única si existe
+    LaunchedEffect(Unit) {
+        progressRepository.migrateLegacySessionIfNeeded(sessionManager)
+    }
+
+    // Observar partida IN_PROGRESS más reciente desde Room
+    val mostRecentInProgress by progressRepository.observeMostRecentInProgress()
+        .collectAsState(initial = null)
+
+    // Observar estadísticas globales desde Room
+    val globalStats by progressRepository.observeGlobalStats()
+        .collectAsState(initial = GlobalProgressStats())
+
+    val hasActiveInProgress = mostRecentInProgress != null &&
+        mostRecentInProgress!!.status == CrosswordBoardStatus.IN_PROGRESS.name
 
     Column(
         modifier = Modifier
@@ -93,6 +113,8 @@ fun HomeScreen(
 
         // Tarjeta compacta "Mi actividad"
         StatsCard(
+            completedCount = globalStats.completedBoards,
+            progressPercent = globalStats.globalPercent,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp),
@@ -100,11 +122,14 @@ fun HomeScreen(
 
         Spacer(Modifier.height(14.dp))
 
-        // Tarjeta "Continuar partida" si existe una partida guardada en curso
-        if (sessionState.hasActiveSession) {
+        // Tarjeta "Continuar partida" usando la partida IN_PROGRESS más reciente de Room
+        if (hasActiveInProgress) {
+            val session = mostRecentInProgress!!
             ContinueGameCard(
-                session = sessionState,
-                onContinuar = { onContinuar(sessionState.boardId) },
+                category = session.category,
+                boardId = session.boardId,
+                progressPercent = session.progressPercent,
+                onContinuar = { onContinuar(session.boardId) },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 20.dp),
@@ -119,7 +144,7 @@ fun HomeScreen(
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp)
                 .height(52.dp)
-                .semantics { contentDescription = "Comenzar una nueva partida de Crucilux" },
+                .semantics { contentDescription = "Comenzar a jugar crucigramas" },
             shape     = RoundedCornerShape(14.dp),
             colors    = ButtonDefaults.buttonColors(
                 containerColor = MaterialTheme.colorScheme.primary,
@@ -131,7 +156,7 @@ fun HomeScreen(
             ),
         ) {
             Text(
-                text       = if (sessionState.hasActiveSession) "Nueva partida" else "Comenzar",
+                text       = "Jugar",
                 style      = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 fontSize   = 16.sp,
@@ -153,7 +178,7 @@ fun HomeScreen(
 
         Spacer(Modifier.height(12.dp))
 
-        // Tarjeta de acceso visible a Configuración estilo Sudolux
+        // Tarjeta de acceso visible a Configuración
         SettingsEntryCard(
             onOpenSettings = onOpenSettings,
             modifier = Modifier
@@ -180,7 +205,6 @@ private fun HomeHeader(
             .padding(start = 20.dp, end = 20.dp, top = 18.dp, bottom = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // Badge visual equivalente al de Sudolux con la letra "C" para Crucilux
         Box(
             modifier = Modifier
                 .size(44.dp)
@@ -231,7 +255,6 @@ private fun HomeHeader(
 
         Spacer(Modifier.width(8.dp))
 
-        // Botón Aa — acceso a Configuración y Accesibilidad
         FilledTonalButton(
             onClick        = onOpenSettings,
             modifier       = Modifier
@@ -250,12 +273,11 @@ private fun HomeHeader(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Identidad visual de Crucilux (cuadrícula compacta y equilibrada)
+// Identidad visual
 // ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
 private fun CrosswordBrandVisual(modifier: Modifier = Modifier) {
-    // Cuadrícula compacta 3×3 con el monograma C-R-U / ·-X-· / L-U-X
     val grid = listOf(
         listOf("C", "R", "U"),
         listOf(" ", "X", " "),
@@ -308,11 +330,15 @@ private fun CrosswordBrandVisual(modifier: Modifier = Modifier) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Tarjeta compacta "Mi actividad" con iconos Material
+// Tarjeta "Mi actividad"
 // ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
-private fun StatsCard(modifier: Modifier = Modifier) {
+private fun StatsCard(
+    completedCount: Int,
+    progressPercent: Int,
+    modifier: Modifier = Modifier,
+) {
     Card(
         modifier  = modifier,
         shape     = RoundedCornerShape(16.dp),
@@ -348,17 +374,17 @@ private fun StatsCard(modifier: Modifier = Modifier) {
                 StatItem(
                     icon        = Icons.Default.CheckCircleOutline,
                     iconTint    = SuccessGreen,
-                    value       = "0",
+                    value       = "$completedCount",
                     label       = "Completados",
-                    contentDesc = "Crucigramas completados: 0",
+                    contentDesc = "Crucigramas completados: $completedCount de 300",
                 )
                 StatDivider()
                 StatItem(
                     icon        = Icons.Default.PieChart,
                     iconTint    = ProgressBlue,
-                    value       = "0 %",
+                    value       = "$progressPercent %",
                     label       = "Progreso",
-                    contentDesc = "Progreso general: 0 por ciento",
+                    contentDesc = "Progreso general: $progressPercent por ciento",
                 )
             }
         }
@@ -412,7 +438,7 @@ private fun StatDivider() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Tarjetas secundarias ("Desafío diario" y "Logros")
+// Tarjetas secundarias
 // ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
@@ -521,10 +547,6 @@ private fun AchievementsCard(modifier: Modifier = Modifier) {
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Tarjeta visible de Configuración en Inicio estilo Sudolux
-// ─────────────────────────────────────────────────────────────────────────────
-
 @Composable
 private fun SettingsEntryCard(
     onOpenSettings: () -> Unit,
@@ -598,12 +620,14 @@ private fun SettingsEntryCard(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Tarjeta "Continuar partida" activa
+// Tarjeta "Continuar partida" activa (Room)
 // ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
 private fun ContinueGameCard(
-    session: GameSessionState,
+    category: String,
+    boardId: String,
+    progressPercent: Int,
     onContinuar: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -612,7 +636,7 @@ private fun ContinueGameCard(
             .clip(RoundedCornerShape(16.dp))
             .clickable(role = Role.Button, onClick = onContinuar)
             .semantics {
-                contentDescription = "Continuar partida de ${session.category}, ${session.boardSize}, ${session.filledCellCount} celdas llenadas"
+                contentDescription = "Continuar partida de $category, $progressPercent por ciento completado"
             },
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
@@ -656,16 +680,8 @@ private fun ContinueGameCard(
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface,
                     )
-                    val subtitle = buildString {
-                        append(session.category.ifBlank { "Crucigrama" })
-                        if (session.boardSize.isNotBlank()) {
-                            append(" · ")
-                            append(session.boardSize)
-                        }
-                        append(" (${session.filledCellCount} celdas llenadas)")
-                    }
                     Text(
-                        text = subtitle,
+                        text = "${category.ifBlank { "Crucigrama" }} · $progressPercent % completado",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -680,5 +696,3 @@ private fun ContinueGameCard(
         }
     }
 }
-
-

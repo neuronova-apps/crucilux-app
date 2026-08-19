@@ -1,4 +1,4 @@
-package com.neuronova.crucilux.ui.game
+﻿package com.neuronova.crucilux.ui.game
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -18,7 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -31,6 +31,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -49,15 +50,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.neuronova.crucilux.data.GameSessionManager
+import com.neuronova.crucilux.data.repository.CrosswordProgressRepository
 import com.neuronova.crucilux.model.CrosswordClue
-import com.neuronova.crucilux.model.CrosswordGrid
 import com.neuronova.crucilux.model.CruciluxDirection
 import com.neuronova.crucilux.ui.theme.SuccessGreen
 
 /**
- * Pantalla interactiva de juego de Crucilux.
+ * Pantalla interactiva de juego de Crucilux con persistencia Room multi-tablero.
  *
- * Estructura en 3 zonas principales (sin listas largas ni scroll general confuso):
+ * Estructura en 4 zonas principales:
  * 1. CABECERA COMPACTA: Botón volver, Categoría y Modo de comprobación.
  * 2. ZONA SUPERIOR: Tablero interactivo responsive.
  * 3. ZONA CENTRAL: Tarjeta de Pista Activa con flechas de navegación ‹ y ›.
@@ -67,12 +68,14 @@ import com.neuronova.crucilux.ui.theme.SuccessGreen
 fun CrosswordGameScreen(
     boardId: String,
     onVolver: () -> Unit,
+    onNavigateToNextBoard: (nextBoardId: String) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
+    val progressRepository = remember { CrosswordProgressRepository.getInstance(context) }
     val sessionManager = remember { GameSessionManager.getInstance(context) }
     val viewModel: CrosswordGameViewModel = viewModel(
-        factory = CrosswordGameViewModel.factory(sessionManager)
+        factory = CrosswordGameViewModel.factory(progressRepository, sessionManager)
     )
 
     LaunchedEffect(boardId) {
@@ -188,7 +191,12 @@ fun CrosswordGameScreen(
     if (state.isCompleted) {
         CompletionDialog(
             totalEntries = state.board?.entries?.size ?: 0,
-            onVolver = {
+            nextBoardId = state.nextBoardId,
+            onNextBoard = { nextId ->
+                viewModel.saveSessionNow()
+                onNavigateToNextBoard(nextId)
+            },
+            onViewBoards = {
                 viewModel.saveSessionNow()
                 onVolver()
             },
@@ -201,9 +209,6 @@ fun CrosswordGameScreen(
 // Componentes auxiliares
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * Cabecera limpia y compacta.
- */
 @Composable
 private fun GameHeader(
     category: String,
@@ -236,7 +241,6 @@ private fun GameHeader(
             modifier = Modifier.weight(1f),
         )
 
-        // Selector compacto Clásica / Asistida
         CompactCheckModeToggle(
             checkMode = checkMode,
             onSetCheckMode = onSetCheckMode,
@@ -244,9 +248,6 @@ private fun GameHeader(
     }
 }
 
-/**
- * Selector compacto de modo de comprobación.
- */
 @Composable
 private fun CompactCheckModeToggle(
     checkMode: CheckMode,
@@ -304,17 +305,6 @@ private fun CheckModeChip(
     }
 }
 
-/**
- * Tarjeta central de Pista Activa con flechas de navegación ‹ y ›.
- *
- * Muestra:
- * - Flecha izquierda ‹
- * - Número + Orientación (ej. "1 Vertical", "7 Horizontal") y badge discreto si está resuelta.
- * - Flecha derecha ›
- * - Texto de la definición.
- * - Información de longitud (SINGLE: "10 letras", COMPOUND: "2 palabras · 6 + 9 letras").
- * - NUNCA expone displayAnswer antes de resolver.
- */
 @Composable
 private fun ActiveClueNavigationCard(
     activeClue: CrosswordClue?,
@@ -340,7 +330,6 @@ private fun ActiveClueNavigationCard(
                 .padding(horizontal = 8.dp, vertical = 4.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            // Fila superior: Flecha ‹, Número + Orientación [y badge de validada], Flecha ›
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -412,7 +401,6 @@ private fun ActiveClueNavigationCard(
                 }
             }
 
-            // Fila central: Texto de la definición
             if (activeClue != null) {
                 Text(
                     text = activeClue.clue,
@@ -426,7 +414,6 @@ private fun ActiveClueNavigationCard(
                         .padding(horizontal = 8.dp, vertical = 1.dp),
                 )
 
-                // Fila inferior: Longitud / tipo de respuesta
                 Text(
                     text = activeClue.formatLengthInfo(),
                     style = MaterialTheme.typography.labelSmall,
@@ -446,14 +433,18 @@ private fun ActiveClueNavigationCard(
 @Composable
 private fun CompletionDialog(
     totalEntries: Int,
-    onVolver: () -> Unit,
+    nextBoardId: String?,
+    onNextBoard: (nextBoardId: String) -> Unit,
+    onViewBoards: () -> Unit,
     onPlayAgain: () -> Unit,
 ) {
+    val isCategoryFinished = nextBoardId == null
+
     AlertDialog(
         onDismissRequest = { /* Modal permanente */ },
         icon = {
             Icon(
-                imageVector = Icons.Default.CheckCircle,
+                imageVector = if (isCategoryFinished) Icons.Default.EmojiEvents else Icons.Default.CheckCircle,
                 contentDescription = null,
                 tint = SuccessGreen,
                 modifier = Modifier.size(48.dp),
@@ -461,7 +452,7 @@ private fun CompletionDialog(
         },
         title = {
             Text(
-                text = "¡Crucigrama completado!",
+                text = if (isCategoryFinished) "¡Categoría completada!" else "¡Crucigrama completado!",
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center,
@@ -474,7 +465,11 @@ private fun CompletionDialog(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Text(
-                    text = "¡Felicitaciones! Has resuelto todas las pistas.",
+                    text = if (isCategoryFinished) {
+                        "¡Felicitaciones extraordinarias! Has resuelto todos los 30 tableros de esta categoría."
+                    } else {
+                        "¡Felicitaciones! Has resuelto todas las pistas de este tablero."
+                    },
                     style = MaterialTheme.typography.bodyMedium,
                     textAlign = TextAlign.Center,
                 )
@@ -488,17 +483,39 @@ private fun CompletionDialog(
             }
         },
         confirmButton = {
-            Button(
-                onClick = onVolver,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                ),
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Text("Volver a categoría")
+                if (nextBoardId != null) {
+                    Button(
+                        onClick = { onNextBoard(nextBoardId) },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                        ),
+                    ) {
+                        Text("Siguiente tablero")
+                    }
+                }
+
+                Button(
+                    onClick = onViewBoards,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (nextBoardId != null) MaterialTheme.colorScheme.secondaryContainer
+                        else MaterialTheme.colorScheme.primary,
+                        contentColor = if (nextBoardId != null) MaterialTheme.colorScheme.onSecondaryContainer
+                        else MaterialTheme.colorScheme.onPrimary,
+                    ),
+                ) {
+                    Text("Ver tableros")
+                }
             }
         },
         dismissButton = {
-            OutlinedButton(
+            TextButton(
                 onClick = onPlayAgain,
             ) {
                 Text("Volver a Jugar")
@@ -506,4 +523,3 @@ private fun CompletionDialog(
         },
     )
 }
-

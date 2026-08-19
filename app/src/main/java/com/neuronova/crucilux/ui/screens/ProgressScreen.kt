@@ -1,4 +1,4 @@
-package com.neuronova.crucilux.ui.screens
+﻿package com.neuronova.crucilux.ui.screens
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -24,24 +24,34 @@ import androidx.compose.material.icons.filled.CheckCircleOutline
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.PieChart
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.neuronova.crucilux.data.GameConfigProvider
+import com.neuronova.crucilux.data.repository.CrosswordProgressRepository
+import com.neuronova.crucilux.data.repository.GlobalProgressStats
+import com.neuronova.crucilux.ui.theme.ProgressBlue
 import com.neuronova.crucilux.ui.theme.StreakOrange
 import com.neuronova.crucilux.ui.theme.SuccessGreen
 
@@ -100,6 +110,12 @@ private val medalsList = listOf(
 
 @Composable
 fun ProgressScreen() {
+    val context = LocalContext.current
+    val progressRepository = remember { CrosswordProgressRepository.getInstance(context) }
+    val globalStats by progressRepository.observeGlobalStats()
+        .collectAsState(initial = GlobalProgressStats())
+    val categories = GameConfigProvider.categories
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -118,7 +134,7 @@ fun ProgressScreen() {
             )
             Spacer(Modifier.height(2.dp))
             Text(
-                text  = "Tu recorrido en Crucilux",
+                text  = "Tu recorrido en Crucilux (300 tableros)",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -133,27 +149,27 @@ fun ProgressScreen() {
         ) {
             ProgressSummaryCard(
                 modifier    = Modifier.weight(1f),
-                icon        = Icons.Default.LocalFireDepartment,
-                iconTint    = StreakOrange,
-                containerBg = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.35f),
-                value       = "0",
-                label       = "Racha actual",
-                contentDesc = "Racha actual: 0 días",
-            )
-            ProgressSummaryCard(
-                modifier    = Modifier.weight(1f),
                 icon        = Icons.Default.CheckCircleOutline,
                 iconTint    = SuccessGreen,
                 containerBg = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f),
-                value       = "0",
+                value       = "${globalStats.completedBoards}",
                 label       = "Completados",
-                contentDesc = "Crucigramas completados: 0",
+                contentDesc = "Crucigramas completados: ${globalStats.completedBoards} de 300",
+            )
+            ProgressSummaryCard(
+                modifier    = Modifier.weight(1f),
+                icon        = Icons.Default.PieChart,
+                iconTint    = ProgressBlue,
+                containerBg = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.35f),
+                value       = "${globalStats.globalPercent} %",
+                label       = "Progreso global",
+                contentDesc = "Progreso global: ${globalStats.globalPercent} por ciento",
             )
         }
 
         Spacer(Modifier.height(14.dp))
 
-        // Tarjeta de actividad reciente (gráfico de actividad semanal)
+        // Desglose de progreso por categoría
         Card(
             modifier  = Modifier
                 .fillMaxWidth()
@@ -168,61 +184,55 @@ fun ProgressScreen() {
             ),
         ) {
             Column(modifier = Modifier.padding(18.dp)) {
-                Row(
-                    modifier              = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment     = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text       = "Actividad reciente",
-                        style      = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.SemiBold,
-                        color      = MaterialTheme.colorScheme.onSurface,
-                    )
-                    Text(
-                        text  = "7 días",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                Spacer(Modifier.height(16.dp))
+                Text(
+                    text       = "Progreso por categoría",
+                    style      = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color      = MaterialTheme.colorScheme.onSurface,
+                )
+                Spacer(Modifier.height(12.dp))
 
-                // Barras de actividad por día de la semana
-                Row(
-                    modifier              = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment     = Alignment.Bottom,
-                ) {
-                    listOf("L", "M", "X", "J", "V", "S", "D").forEach { day ->
-                        Column(
-                            modifier            = Modifier.weight(1f),
-                            horizontalAlignment = Alignment.CenterHorizontally,
+                categories.forEachIndexed { index, cat ->
+                    val stats by progressRepository.observeCategoryStats(cat.displayName)
+                        .collectAsState(initial = null)
+                    val completed = stats?.completedBoards ?: 0
+                    val percent = stats?.completedPercent ?: 0
+
+                    Column(modifier = Modifier.padding(vertical = 4.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(36.dp)
-                                    .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
-                                    .background(MaterialTheme.colorScheme.surfaceVariant),
-                            )
-                            Spacer(Modifier.height(4.dp))
                             Text(
-                                text  = day,
+                                text = cat.displayName,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                            Text(
+                                text = "$completed / 30 ($percent %)",
                                 style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontWeight = FontWeight.Bold,
+                                color = if (percent == 100) SuccessGreen else MaterialTheme.colorScheme.primary,
                             )
                         }
+                        Spacer(Modifier.height(4.dp))
+                        LinearProgressIndicator(
+                            progress = { (percent / 100f).coerceIn(0f, 1f) },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(4.dp)
+                                .clip(RoundedCornerShape(2.dp)),
+                            color = if (percent == 100) SuccessGreen else MaterialTheme.colorScheme.primary,
+                            trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                        )
+                    }
+
+                    if (index < categories.lastIndex) {
+                        Spacer(Modifier.height(4.dp))
                     }
                 }
-
-                Spacer(Modifier.height(12.dp))
-                Text(
-                    text      = "Las estadísticas aparecerán cuando completes tu primer crucigrama",
-                    style     = MaterialTheme.typography.bodySmall,
-                    color     = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center,
-                    modifier  = Modifier.fillMaxWidth(),
-                )
             }
         }
 
@@ -392,10 +402,6 @@ private fun MedalCard(
         }
     }
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Tarjetas de resumen
-// ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
 private fun ProgressSummaryCard(

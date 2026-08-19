@@ -1,4 +1,4 @@
-package com.neuronova.crucilux.navigation
+﻿package com.neuronova.crucilux.navigation
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -12,6 +12,7 @@ import com.neuronova.crucilux.data.UserPreferences
 import com.neuronova.crucilux.data.UserPreferencesManager
 import com.neuronova.crucilux.ui.game.CrosswordGameScreen
 import com.neuronova.crucilux.ui.screens.AboutScreen
+import com.neuronova.crucilux.ui.screens.CategoryBoardsScreen
 import com.neuronova.crucilux.ui.screens.GameSetupReadyScreen
 import com.neuronova.crucilux.ui.screens.HomeScreen
 import com.neuronova.crucilux.ui.screens.PlayScreen
@@ -24,6 +25,11 @@ sealed class Screen(val route: String) {
     object Welcome        : Screen("welcome")
     object Home           : Screen("home")
     object Play           : Screen("play")
+    object CategoryBoards : Screen("category/{category}/boards") {
+        fun createRoute(category: String): String {
+            return "category/$category/boards"
+        }
+    }
     object Progress       : Screen("progress")
     object Settings       : Screen("settings")
     object About          : Screen("about")
@@ -88,12 +94,31 @@ fun CruciluxNavGraph(
         }
         composable(Screen.Play.route) {
             PlayScreen(
-                onNavigateToReady = { category ->
+                onNavigateToCategoryBoards = { category ->
                     navController.navigate(
-                        Screen.GameSetupReady.createRoute(category)
+                        Screen.CategoryBoards.createRoute(category)
                     ) {
                         launchSingleTop = true
                     }
+                },
+            )
+        }
+        composable(
+            route = Screen.CategoryBoards.route,
+            arguments = listOf(
+                navArgument("category") { type = NavType.StringType },
+            ),
+        ) { backStackEntry ->
+            val category = backStackEntry.arguments?.getString("category") ?: GameConfigProvider.defaultCategory.displayName
+            CategoryBoardsScreen(
+                category = category,
+                onSelectBoard = { boardId ->
+                    navController.navigate(Screen.Game.createRoute(boardId)) {
+                        launchSingleTop = true
+                    }
+                },
+                onVolver = {
+                    navController.popBackStack()
                 },
             )
         }
@@ -126,7 +151,6 @@ fun CruciluxNavGraph(
             ),
         ) { backStackEntry ->
             val category = backStackEntry.arguments?.getString("category") ?: GameConfigProvider.defaultCategory.displayName
-
             GameSetupReadyScreen(
                 category = category,
                 onVolver = {
@@ -150,6 +174,12 @@ fun CruciluxNavGraph(
                 boardId = boardId,
                 onVolver = {
                     navController.popBackStack()
+                },
+                onNavigateToNextBoard = { nextBoardId ->
+                    navController.navigate(Screen.Game.createRoute(nextBoardId)) {
+                        popUpTo(Screen.Game.route) { inclusive = true }
+                        launchSingleTop = true
+                    }
                 },
             )
         }
