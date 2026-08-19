@@ -19,7 +19,7 @@ interface CrosswordProgressDao {
     fun observeProgress(boardId: String): Flow<CrosswordProgressEntity?>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertOrUpdate(entity: CrosswordProgressEntity)
+    suspend fun insertOrUpdate(entity: CrosswordProgressEntity): Long
 
     @Query("SELECT * FROM crossword_progress")
     suspend fun getAllProgress(): List<CrosswordProgressEntity>
@@ -55,8 +55,8 @@ interface CrosswordProgressDao {
     suspend fun countInProgressByCategory(category: String): Int
 
     @Query("DELETE FROM crossword_progress WHERE boardId = :boardId")
-    suspend fun deleteProgress(boardId: String)
+    suspend fun deleteProgress(boardId: String): Int
 
     @Query("DELETE FROM crossword_progress")
-    suspend fun clearAllProgress()
+    suspend fun clearAllProgress(): Int
 }

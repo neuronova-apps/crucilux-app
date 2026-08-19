@@ -45,9 +45,10 @@ class FakeCrosswordProgressDao : CrosswordProgressDao {
         return flow.map { list -> list.firstOrNull { it.boardId == boardId } }
     }
 
-    override suspend fun insertOrUpdate(entity: CrosswordProgressEntity) {
+    override suspend fun insertOrUpdate(entity: CrosswordProgressEntity): Long {
         data[entity.boardId] = entity
         notifyFlow()
+        return 1L
     }
 
     override suspend fun getAllProgress(): List<CrosswordProgressEntity> = data.values.toList()
@@ -96,14 +97,17 @@ class FakeCrosswordProgressDao : CrosswordProgressDao {
         }
     }
 
-    override suspend fun deleteProgress(boardId: String) {
-        data.remove(boardId)
+    override suspend fun deleteProgress(boardId: String): Int {
+        val removed = data.remove(boardId) != null
         notifyFlow()
+        return if (removed) 1 else 0
     }
 
-    override suspend fun clearAllProgress() {
+    override suspend fun clearAllProgress(): Int {
+        val count = data.size
         data.clear()
         notifyFlow()
+        return count
     }
 }
 
@@ -192,11 +196,9 @@ class CrosswordProgressTest {
         val grid = CruciluxGridEngine.buildGrid(board)
         val playableCells = grid.cells.flatten().filter { it.isActive }
 
-        // 1 casilla correcta
         val map1 = mapOf(Pair(playableCells[0].row, playableCells[0].col) to playableCells[0].solutionLetter!!)
         val (st1, pct1) = CrosswordProgressRepository.calculateProgress(grid, map1, isCompleted = false)
 
-        // 3 casillas correctas
         val map3 = playableCells.take(3).associate { Pair(it.row, it.col) to it.solutionLetter!! }
         val (st3, pct3) = CrosswordProgressRepository.calculateProgress(grid, map3, isCompleted = false)
 
@@ -250,7 +252,6 @@ class CrosswordProgressTest {
         val board = bankRepository.getAllBoards().first()
         val grid = CruciluxGridEngine.buildGrid(board)
 
-        // Completar
         progressRepository.saveProgress(
             boardId = board.id,
             category = board.category,
@@ -259,7 +260,6 @@ class CrosswordProgressTest {
             isCompletedOverride = true,
         )
 
-        // Simular nueva carga
         val loaded = progressRepository.getProgress(board.id)
         assertEquals(CrosswordBoardStatus.COMPLETED, loaded.status)
         assertEquals(100, loaded.progressPercent)
@@ -270,7 +270,6 @@ class CrosswordProgressTest {
         val board = bankRepository.getAllBoards().first()
         val grid = CruciluxGridEngine.buildGrid(board)
 
-        // Marcar completado
         progressRepository.saveProgress(
             boardId = board.id,
             category = board.category,
@@ -279,7 +278,6 @@ class CrosswordProgressTest {
             isCompletedOverride = true,
         )
 
-        // Intentar guardar progreso de nuevo sin override
         progressRepository.saveProgress(
             boardId = board.id,
             category = board.category,
@@ -319,9 +317,8 @@ class CrosswordProgressTest {
     @Test
     fun `11 usuario puede seleccionar cualquier tablero sin bloqueos`() = runBlocking {
         val catBoards = bankRepository.getBoardsByCategory("Tecnología")
-        val lastBoard = catBoards.last() // Tablero 30
+        val lastBoard = catBoards.last()
 
-        // El usuario puede abrir y guardar progreso directamente en el tablero 30
         progressRepository.saveProgress(
             boardId = lastBoard.id,
             category = lastBoard.category,
@@ -383,7 +380,6 @@ class CrosswordProgressTest {
         val b2 = bankRepository.getAllBoards()[1]
 
         progressRepository.saveProgress(b1.id, b1.category, mapOf(Pair(0, 0) to 'A'), null)
-        // Pequeño delay temporal para timestamp
         val entity2 = CrosswordProgressEntity(
             boardId = b2.id,
             category = b2.category,
@@ -403,7 +399,6 @@ class CrosswordProgressTest {
     fun `15 COMPLETED no aparece como Continuar`() = runBlocking {
         val b1 = bankRepository.getAllBoards()[0]
 
-        // Guardar como COMPLETED
         fakeDao.insertOrUpdate(
             CrosswordProgressEntity(
                 boardId = b1.id,
@@ -436,7 +431,6 @@ class CrosswordProgressTest {
         val b1 = catBoards[1]
         val b2 = catBoards[2]
 
-        // Completar b1
         fakeDao.insertOrUpdate(
             CrosswordProgressEntity(
                 boardId = b1.id,
@@ -457,7 +451,6 @@ class CrosswordProgressTest {
         val catBoards = bankRepository.getBoardsByCategory(cat)
         assertEquals(30, catBoards.size)
 
-        // Completar los 30 tableros
         for (b in catBoards) {
             fakeDao.insertOrUpdate(
                 CrosswordProgressEntity(
@@ -483,7 +476,6 @@ class CrosswordProgressTest {
         val cat = "Geografía"
         val catBoards = bankRepository.getBoardsByCategory(cat)
 
-        // Completar 12 tableros
         for (i in 0 until 12) {
             fakeDao.insertOrUpdate(
                 CrosswordProgressEntity(
@@ -498,7 +490,7 @@ class CrosswordProgressTest {
         val stats = progressRepository.observeCategoryStats(cat).first()
         assertEquals(12, stats.completedBoards)
         assertEquals(30, stats.totalBoards)
-        assertEquals(40, stats.completedPercent) // 12 / 30 = 40%
+        assertEquals(40, stats.completedPercent)
     }
 
     @Test
@@ -506,7 +498,6 @@ class CrosswordProgressTest {
         val allBoards = bankRepository.getAllBoards()
         assertEquals(300, allBoards.size)
 
-        // Completar 30 tableros y dejar 15 en progreso
         for (i in 0 until 30) {
             fakeDao.insertOrUpdate(
                 CrosswordProgressEntity(
@@ -533,7 +524,7 @@ class CrosswordProgressTest {
         assertEquals(30, global.completedBoards)
         assertEquals(15, global.inProgressBoards)
         assertEquals(255, global.notStartedBoards)
-        assertEquals(10, global.globalPercent) // 30 / 300 = 10%
+        assertEquals(10, global.globalPercent)
     }
 
     @Test
@@ -542,7 +533,6 @@ class CrosswordProgressTest {
         val legacyLetters = mapOf(Pair(0, 0) to 'C', Pair(0, 1) to 'A')
         val serialized = GameSessionManager.serializeLetters(legacyLetters)
 
-        // Simular inserción directa de migración
         fakeDao.insertOrUpdate(
             CrosswordProgressEntity(
                 boardId = board.id,
