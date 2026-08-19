@@ -1,8 +1,5 @@
 package com.neuronova.crucilux.ui.game
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -16,17 +13,13 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.SwapVert
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -35,6 +28,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -61,20 +55,13 @@ import com.neuronova.crucilux.model.CruciluxDirection
 import com.neuronova.crucilux.ui.theme.SuccessGreen
 
 /**
- * Pantalla interactiva de juego de Crucilux — Etapa 2 (Banco dinámico v1.37).
+ * Pantalla interactiva de juego de Crucilux.
  *
- * Características:
- * - Soporta dimensiones dinámicas de tablero (rows × cols).
- * - Muestra información de palabras compuestas (ej. "2 palabras · 6 + 9 letras") sin revelar respuestas.
- * - Selección de celdas y alternancia H/V.
- * - Resaltado de palabra activa y celda con foco.
- * - Teclado virtual adaptativo en español.
- * - Entrada y borrado de letras con avance automático.
- * - Modos de comprobación: Clásica y Asistida.
- * - Comprobar palabra activa en modo Clásica.
- * - Autoguardado transparente en DataStore.
- * - Barra activa de pista superior con detalles de longitud.
- * - Navegación e integración accesible para TalkBack.
+ * Estructura en 3 zonas principales (sin listas largas ni scroll general confuso):
+ * 1. CABECERA COMPACTA: Botón volver, Categoría y Modo de comprobación.
+ * 2. ZONA SUPERIOR: Tablero interactivo responsive.
+ * 3. ZONA CENTRAL: Tarjeta de Pista Activa con flechas de navegación ‹ y ›.
+ * 4. ZONA INFERIOR: Teclado virtual adaptativo con Ñ y Borrar.
  */
 @Composable
 fun CrosswordGameScreen(
@@ -99,11 +86,9 @@ fun CrosswordGameScreen(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background),
     ) {
-        // ── Cabecera ─────────────────────────────────────────────────────────
+        // ── A. Cabecera muy compacta ─────────────────────────────────────────
         GameHeader(
             category = state.board?.category ?: "",
-            dimensions = if (state.board != null) "${state.board!!.rows} × ${state.board!!.cols}" else "",
-            boardId = state.board?.id ?: "",
             checkMode = state.checkMode,
             onSetCheckMode = { viewModel.onSetCheckMode(it) },
             onVolver = {
@@ -112,16 +97,7 @@ fun CrosswordGameScreen(
             },
         )
 
-        // ── Feedback temporal de comprobación ────────────────────────────────
-        AnimatedVisibility(
-            visible = state.checkWordResult != null,
-            enter = fadeIn(),
-            exit = fadeOut(),
-        ) {
-            CheckResultBanner(result = state.checkWordResult)
-        }
-
-        // ── Contenido central ────────────────────────────────────────────────
+        // ── Contenido principal de partida ───────────────────────────────────
         when {
             state.isLoading -> {
                 Box(
@@ -157,24 +133,26 @@ fun CrosswordGameScreen(
             state.grid != null && state.board != null -> {
                 val grid = state.grid!!
 
-                // Pista activa destacada
-                ActiveClueCard(
-                    grid = grid,
-                    activeEntryBankId = state.activeEntryBankId,
-                    activeDirection = state.activeDirection,
-                )
+                // Pista activa
+                val activeClue = if (state.activeEntryBankId != null) {
+                    if (state.activeDirection == CruciluxDirection.HORIZONTAL) {
+                        grid.horizontalClues.firstOrNull { it.bankId == state.activeEntryBankId }
+                    } else {
+                        grid.verticalClues.firstOrNull { it.bankId == state.activeEntryBankId }
+                    }
+                } else null
 
-                // Área desplazable con tablero y pistas
-                Column(
+                val isClueValidated = state.activeEntryBankId != null &&
+                    state.activeEntryBankId in state.validatedEntryBankIds
+
+                // ── B. ZONA SUPERIOR: Tablero ────────────────────────────────
+                Box(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxWidth()
-                        .verticalScroll(rememberScrollState())
-                        .padding(horizontal = 8.dp),
+                        .padding(horizontal = 8.dp, vertical = 2.dp),
+                    contentAlignment = Alignment.Center,
                 ) {
-                    Spacer(Modifier.height(4.dp))
-
-                    // Tablero de juego
                     CrosswordBoardView(
                         grid = grid,
                         selectedRow = state.selectedRow,
@@ -182,73 +160,40 @@ fun CrosswordGameScreen(
                         activeDirection = state.activeDirection,
                         activeCellsInWord = state.activeCellsInWord,
                         userLetters = state.userLetters,
+                        validatedCells = state.validatedCells,
                         incorrectCells = state.incorrectCells,
                         onCellTapped = { r, c -> viewModel.onCellTapped(r, c) },
                         modifier = Modifier.fillMaxWidth(),
                     )
-
-                    Spacer(Modifier.height(8.dp))
-
-                    // Botón comprobar en modo Clásica
-                    if (state.checkMode == CheckMode.CLASSIC && state.activeCellsInWord.isNotEmpty()) {
-                        Button(
-                            onClick = { viewModel.onCheckWord() },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(44.dp)
-                                .semantics { contentDescription = "Comprobar palabra activa" },
-                            shape = RoundedCornerShape(10.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                            ),
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.CheckCircle,
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp),
-                            )
-                            Spacer(Modifier.width(6.dp))
-                            Text(
-                                text = "Comprobar palabra",
-                                style = MaterialTheme.typography.labelLarge,
-                                fontWeight = FontWeight.Bold,
-                            )
-                        }
-                        Spacer(Modifier.height(8.dp))
-                    }
-
-                    // Pistas expandidas
-                    ClueSection(
-                        title = "Horizontales",
-                        clues = grid.horizontalClues,
-                        activeEntryBankId = state.activeEntryBankId,
-                        onClueTapped = { clue ->
-                            viewModel.onCellTapped(clue.startRow, clue.startCol)
-                        },
-                    )
-
-                    Spacer(Modifier.height(8.dp))
-
-                    ClueSection(
-                        title = "Verticales",
-                        clues = grid.verticalClues,
-                        activeEntryBankId = state.activeEntryBankId,
-                        onClueTapped = { clue ->
-                            viewModel.onCellTapped(clue.startRow, clue.startCol)
-                        },
-                    )
-
-                    Spacer(Modifier.height(16.dp))
                 }
 
-                // Teclado virtual fijo en la parte inferior
+                // ── C. ZONA CENTRAL: Barra de Pista Activa con Flechas ───────
+                ActiveClueNavigationCard(
+                    activeClue = activeClue,
+                    isValidated = isClueValidated,
+                    onPrevious = { viewModel.onPreviousClue() },
+                    onNext = { viewModel.onNextClue() },
+                )
+
+                // ── D. ZONA INFERIOR: Teclado Virtual ────────────────────────
                 CruciluxKeyboardView(
                     onLetter = { viewModel.onLetterEntered(it) },
                     onDelete = { viewModel.onDeleteLetter() },
                 )
             }
         }
+    }
+
+    // ── Diálogo de felicitación al completar el tablero ──────────────────────
+    if (state.isCompleted) {
+        CompletionDialog(
+            totalEntries = state.board?.entries?.size ?: 0,
+            onVolver = {
+                viewModel.saveSessionNow()
+                onVolver()
+            },
+            onPlayAgain = { viewModel.onPlayAgain() },
+        )
     }
 }
 
@@ -257,13 +202,11 @@ fun CrosswordGameScreen(
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Cabecera con selector compacto de modo de comprobación y dimensiones del tablero.
+ * Cabecera limpia y compacta.
  */
 @Composable
 private fun GameHeader(
     category: String,
-    dimensions: String,
-    boardId: String,
     checkMode: CheckMode,
     onSetCheckMode: (CheckMode) -> Unit,
     onVolver: () -> Unit,
@@ -285,33 +228,13 @@ private fun GameHeader(
             )
         }
 
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = category.ifBlank { "Crucigrama" },
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onBackground,
-            )
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                if (dimensions.isNotBlank()) {
-                    Text(
-                        text = dimensions,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                if (boardId.isNotBlank()) {
-                    Text(
-                        text = "· $boardId",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                    )
-                }
-            }
-        }
+        Text(
+            text = category.ifBlank { "Crucigrama" },
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onBackground,
+            modifier = Modifier.weight(1f),
+        )
 
         // Selector compacto Clásica / Asistida
         CompactCheckModeToggle(
@@ -322,7 +245,7 @@ private fun GameHeader(
 }
 
 /**
- * Selector compacto de modo de comprobación (discreto, no invasivo).
+ * Selector compacto de modo de comprobación.
  */
 @Composable
 private fun CompactCheckModeToggle(
@@ -382,248 +305,205 @@ private fun CheckModeChip(
 }
 
 /**
- * Tarjeta superior que muestra la pista de la palabra activa en tiempo real con longitud y tipo compuesto.
+ * Tarjeta central de Pista Activa con flechas de navegación ‹ y ›.
+ *
+ * Muestra:
+ * - Flecha izquierda ‹
+ * - Número + Orientación (ej. "1 Vertical", "7 Horizontal") y badge discreto si está resuelta.
+ * - Flecha derecha ›
+ * - Texto de la definición.
+ * - Información de longitud (SINGLE: "10 letras", COMPOUND: "2 palabras · 6 + 9 letras").
+ * - NUNCA expone displayAnswer antes de resolver.
  */
 @Composable
-private fun ActiveClueCard(
-    grid: CrosswordGrid,
-    activeEntryBankId: String?,
-    activeDirection: CruciluxDirection,
+private fun ActiveClueNavigationCard(
+    activeClue: CrosswordClue?,
+    isValidated: Boolean,
+    onPrevious: () -> Unit,
+    onNext: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    val activeClue = if (activeEntryBankId != null) {
-        if (activeDirection == CruciluxDirection.HORIZONTAL) {
-            grid.horizontalClues.firstOrNull { it.bankId == activeEntryBankId }
-        } else {
-            grid.verticalClues.firstOrNull { it.bankId == activeEntryBankId }
-        }
-    } else null
-
     Card(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 4.dp),
-        shape = RoundedCornerShape(10.dp),
+            .padding(horizontal = 8.dp, vertical = 2.dp),
+        shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+            containerColor = if (isValidated) SuccessGreen.copy(alpha = 0.12f)
+            else MaterialTheme.colorScheme.surfaceContainerLow,
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                .padding(horizontal = 8.dp, vertical = 4.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            if (activeClue != null) {
-                val dirText = if (activeClue.direction == CruciluxDirection.HORIZONTAL) "H" else "V"
-
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(MaterialTheme.colorScheme.primaryContainer)
-                        .padding(horizontal = 6.dp, vertical = 2.dp),
-                ) {
-                    Text(
-                        text = "${activeClue.number}$dirText",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer,
-                    )
-                }
-
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = activeClue.clue,
-                        style = MaterialTheme.typography.bodySmall,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                    Text(
-                        text = activeClue.formatLengthInfo(),
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Normal,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                }
-            } else {
-                Icon(
-                    imageVector = Icons.Default.Info,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(16.dp),
-                )
-                Text(
-                    text = "Toca una celda para ver su pista",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-    }
-}
-
-/**
- * Banner de feedback para la acción Comprobar palabra.
- */
-@Composable
-private fun CheckResultBanner(result: CheckWordResult?) {
-    if (result == null) return
-
-    val (bgColor, textColor, icon, message) = when (result) {
-        CheckWordResult.Incomplete -> Quad(
-            MaterialTheme.colorScheme.surfaceVariant,
-            MaterialTheme.colorScheme.onSurfaceVariant,
-            Icons.Default.ErrorOutline,
-            "Palabra incompleta. Completa todas las letras primero.",
-        )
-        CheckWordResult.Correct -> Quad(
-            SuccessGreen.copy(alpha = 0.2f),
-            SuccessGreen,
-            Icons.Default.Check,
-            "¡Palabra correcta!",
-        )
-        CheckWordResult.HasErrors -> Quad(
-            MaterialTheme.colorScheme.errorContainer,
-            MaterialTheme.colorScheme.onErrorContainer,
-            Icons.Default.ErrorOutline,
-            "Hay letras incorrectas en la palabra.",
-        )
-    }
-
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 2.dp),
-        color = bgColor,
-        shape = RoundedCornerShape(8.dp),
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = textColor,
-                modifier = Modifier.size(16.dp),
-            )
-            Text(
-                text = message,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = textColor,
-            )
-        }
-    }
-}
-
-private data class Quad<A, B, C, D>(val first: A, val second: B, val third: C, val fourth: D)
-
-/**
- * Sección desplegada de pistas con soporte de selección por toque.
- */
-@Composable
-private fun ClueSection(
-    title: String,
-    clues: List<CrosswordClue>,
-    activeEntryBankId: String?,
-    onClueTapped: (CrosswordClue) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    if (clues.isEmpty()) return
-
-    Column(modifier = modifier) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleSmall,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.padding(bottom = 4.dp),
-        )
-
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(10.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surface,
-            ),
-            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        ) {
-            Column(
-                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                verticalArrangement = Arrangement.spacedBy(2.dp),
+            // Fila superior: Flecha ‹, Número + Orientación [y badge de validada], Flecha ›
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                clues.forEachIndexed { index, clue ->
-                    val isActive = clue.bankId == activeEntryBankId
-                    InteractiveClueItem(
-                        clue = clue,
-                        isActive = isActive,
-                        onClick = { onClueTapped(clue) },
+                IconButton(
+                    onClick = onPrevious,
+                    modifier = Modifier
+                        .size(36.dp)
+                        .semantics { contentDescription = "Pista anterior" },
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp),
+                        tint = MaterialTheme.colorScheme.primary,
                     )
+                }
 
-                    if (index < clues.lastIndex) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(0.5.dp)
-                                .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    if (activeClue != null) {
+                        val dirName = if (activeClue.direction == CruciluxDirection.HORIZONTAL) "Horizontal" else "Vertical"
+                        Text(
+                            text = "${activeClue.number} $dirName",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = if (isValidated) SuccessGreen else MaterialTheme.colorScheme.onSurface,
+                        )
+
+                        if (isValidated) {
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .background(SuccessGreen.copy(alpha = 0.2f))
+                                    .padding(horizontal = 6.dp, vertical = 2.dp),
+                            ) {
+                                Text(
+                                    text = "✓ Resuelta",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = SuccessGreen,
+                                )
+                            }
+                        }
+                    } else {
+                        Text(
+                            text = "Selecciona una casilla",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                 }
+
+                IconButton(
+                    onClick = onNext,
+                    modifier = Modifier
+                        .size(36.dp)
+                        .semantics { contentDescription = "Pista siguiente" },
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp),
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                }
+            }
+
+            // Fila central: Texto de la definición
+            if (activeClue != null) {
+                Text(
+                    text = activeClue.clue,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    textAlign = TextAlign.Center,
+                    maxLines = 3,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp, vertical = 1.dp),
+                )
+
+                // Fila inferior: Longitud / tipo de respuesta
+                Text(
+                    text = activeClue.formatLengthInfo(),
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (isValidated) SuccessGreen else MaterialTheme.colorScheme.primary,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(top = 1.dp, bottom = 2.dp),
+                )
             }
         }
     }
 }
 
+/**
+ * Diálogo de felicitación cuando se completa el crucigrama al 100%.
+ */
 @Composable
-private fun InteractiveClueItem(
-    clue: CrosswordClue,
-    isActive: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
+private fun CompletionDialog(
+    totalEntries: Int,
+    onVolver: () -> Unit,
+    onPlayAgain: () -> Unit,
 ) {
-    val dirLabel = if (clue.direction == CruciluxDirection.HORIZONTAL) "horizontal" else "vertical"
-    val lengthDesc = clue.formatLengthInfo()
-
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(6.dp))
-            .background(
-                if (isActive) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
-                else androidx.compose.ui.graphics.Color.Transparent
+    AlertDialog(
+        onDismissRequest = { /* Modal permanente */ },
+        icon = {
+            Icon(
+                imageVector = Icons.Default.CheckCircle,
+                contentDescription = null,
+                tint = SuccessGreen,
+                modifier = Modifier.size(48.dp),
             )
-            .clickable(role = Role.Button, onClick = onClick)
-            .padding(horizontal = 6.dp, vertical = 5.dp)
-            .semantics {
-                contentDescription = "Pista $dirLabel número ${clue.number}: ${clue.clue}, $lengthDesc${if (isActive) ", seleccionada" else ""}"
-            },
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.Top,
-    ) {
-        Text(
-            text = "${clue.number}.",
-            style = MaterialTheme.typography.bodySmall,
-            fontWeight = if (isActive) FontWeight.ExtraBold else FontWeight.Bold,
-            color = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
-            modifier = Modifier.padding(top = 1.dp),
-        )
-
-        Column(modifier = Modifier.weight(1f)) {
+        },
+        title = {
             Text(
-                text = clue.clue,
-                style = MaterialTheme.typography.bodySmall,
-                fontWeight = if (isActive) FontWeight.SemiBold else FontWeight.Normal,
-                color = if (isActive) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+                text = "¡Crucigrama completado!",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center,
             )
-            Text(
-                text = lengthDesc,
-                style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.Normal,
-                color = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-            )
-        }
-    }
+        },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text(
+                    text = "¡Felicitaciones! Has resuelto todas las pistas.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    textAlign = TextAlign.Center,
+                )
+                Text(
+                    text = "$totalEntries de $totalEntries palabras resueltas (100%)",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = SuccessGreen,
+                    textAlign = TextAlign.Center,
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = onVolver,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                ),
+            ) {
+                Text("Volver a categoría")
+            }
+        },
+        dismissButton = {
+            OutlinedButton(
+                onClick = onPlayAgain,
+            ) {
+                Text("Volver a Jugar")
+            }
+        },
+    )
 }
+

@@ -7,9 +7,10 @@ import com.neuronova.crucilux.data.GameSessionManager
 import com.neuronova.crucilux.data.GameSessionState
 import com.neuronova.crucilux.data.bank.CruciluxBankRepository
 import com.neuronova.crucilux.engine.CruciluxGridEngine
+import com.neuronova.crucilux.model.CrosswordClue
+import com.neuronova.crucilux.model.CrosswordGrid
 import com.neuronova.crucilux.model.CruciluxBoard
 import com.neuronova.crucilux.model.CruciluxDirection
-import com.neuronova.crucilux.model.CrosswordGrid
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -26,8 +27,8 @@ import kotlinx.coroutines.withContext
 /**
  * Modo de comprobación de respuestas en la partida.
  *
- * [CLASSIC] — acepta cualquier letra sin verificación inmediata.
- * [ASSISTED] — verifica cada letra y elimina las incorrectas con feedback.
+ * [CLASSIC] — acepta letras y valida palabras automáticamente al completarlas.
+ * [ASSISTED] — verifica cada letra individualmente y elimina las incorrectas con feedback.
  */
 enum class CheckMode {
     CLASSIC,
@@ -35,26 +36,7 @@ enum class CheckMode {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Resultado de comprobar palabra activa
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * Resultado de la acción "Comprobar palabra" disponible en modo Clásica.
- * Nunca revela automáticamente las letras correctas.
- */
-sealed class CheckWordResult {
-    /** La palabra activa tiene celdas vacías. */
-    object Incomplete : CheckWordResult()
-
-    /** Todas las letras del usuario coinciden con la solución. */
-    object Correct : CheckWordResult()
-
-    /** Algunas letras no coinciden con la solución. */
-    object HasErrors : CheckWordResult()
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Estado completo de la pantalla de juego — Etapa 2
+// Estado completo de la pantalla de juego
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
@@ -71,8 +53,10 @@ sealed class CheckWordResult {
  * @property activeCellsInWord Conjunto de coordenadas de todas las celdas de la palabra activa.
  * @property userLetters Letras introducidas por el usuario. Nunca contiene soluciones del banco.
  * @property checkMode Modo de comprobación actual.
- * @property incorrectCells Celdas con letra incorrecta en modo Asistida.
- * @property checkWordResult Resultado temporal de la última acción "Comprobar".
+ * @property incorrectCells Celdas con letra incorrecta temporal en modo Asistida.
+ * @property validatedEntryBankIds Conjunto de bankIds de palabras validadas correctamente.
+ * @property validatedCells Conjunto de coordenadas (row, col) pertenecientes a palabras validadas (bloqueadas).
+ * @property isCompleted `true` cuando todas las palabras del tablero han sido validadas.
  * @property isSessionSaved `true` si hay una sesión guardada localmente.
  */
 data class CrosswordGameState(
@@ -88,7 +72,9 @@ data class CrosswordGameState(
     val userLetters: Map<Pair<Int, Int>, Char> = emptyMap(),
     val checkMode: CheckMode = CheckMode.CLASSIC,
     val incorrectCells: Set<Pair<Int, Int>> = emptySet(),
-    val checkWordResult: CheckWordResult? = null,
+    val validatedEntryBankIds: Set<String> = emptySet(),
+    val validatedCells: Set<Pair<Int, Int>> = emptySet(),
+    val isCompleted: Boolean = false,
     val isSessionSaved: Boolean = false,
 )
 
@@ -97,22 +83,23 @@ data class CrosswordGameState(
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * ViewModel de la pantalla de juego interactivo de Crucilux — Etapa 2.
+ * ViewModel de la pantalla de juego interactivo de Crucilux.
  *
  * Gestiona:
  * - Carga del tablero desde [CruciluxBankRepository].
  * - Construcción de la cuadrícula mediante [CruciluxGridEngine].
  * - Selección de celda y alternancia de dirección H/V.
- * - Entrada de letras con avance automático.
+ * - Entrada de letras con avance automático y bloqueo de celdas validadas.
+ * - Validación automática continua de palabras completas.
+ * - Navegación ordenada entre pistas (anterior / siguiente).
+ * - Detección automática de tablero completado al 100%.
  * - Modos de comprobación: Clásica y Asistida.
- * - Acción "Comprobar palabra" para el modo Clásica.
- * - Autoguardado mediante [GameSessionManager].
- * - Restauración de sesión guardada.
+ * - Autoguardado y restauración transparente mediante [GameSessionManager].
  *
- * Nunca expone ni registra en logs la [solutionLetter] de ninguna celda.
+ * Nunca expone ni registra en logs la solución del banco.
  */
 class CrosswordGameViewModel(
-    private val sessionManager: GameSessionManager,
+    private val sessionManager: GameSessionManager? = null,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(CrosswordGameState())
@@ -121,7 +108,6 @@ class CrosswordGameViewModel(
     companion object {
         /**
          * Factory que inyecta [GameSessionManager] en el ViewModel.
-         * Usar en Compose: `viewModel(factory = CrosswordGameViewModel.factory(sessionManager))`
          */
         fun factory(sessionManager: GameSessionManager): ViewModelProvider.Factory {
             return object : ViewModelProvider.Factory {
@@ -139,7 +125,6 @@ class CrosswordGameViewModel(
 
     /**
      * Carga el tablero por su ID y restaura la sesión guardada si coincide.
-     * Seguro llamarlo múltiples veces — solo carga una vez por boardId.
      */
     fun loadBoard(boardId: String) {
         val current = _state.value
@@ -162,16 +147,17 @@ class CrosswordGameViewModel(
                 val grid = CruciluxGridEngine.buildGrid(board)
 
                 // Intentar restaurar sesión guardada
-                val savedSession = withContext(Dispatchers.IO) {
-                    try {
-                        sessionManager.sessionFlow.first()
-                    } catch (e: Exception) {
-                        null
+                val savedSession = if (sessionManager != null) {
+                    withContext(Dispatchers.IO) {
+                        try {
+                            sessionManager.sessionFlow.first()
+                        } catch (e: Exception) {
+                            null
+                        }
                     }
-                }
+                } else null
 
                 if (savedSession != null && savedSession.boardId == boardId && savedSession.hasActiveSession) {
-                    // Restaurar desde sesión guardada
                     val userLetters = savedSession.userLetters
                     val savedRow = savedSession.selectedRow
                     val savedCol = savedSession.selectedCol
@@ -182,7 +168,11 @@ class CrosswordGameViewModel(
                     }
                     val savedMode = if (savedSession.checkMode == "ASSISTED") CheckMode.ASSISTED else CheckMode.CLASSIC
 
-                    // Calcular la palabra activa a partir de la celda guardada
+                    // Derivar estado de validación a partir de userLetters guardadas
+                    val (valBankIds, valCells) = computeValidatedState(grid, board, userLetters)
+                    val isComp = valBankIds.size == board.entries.size && board.entries.isNotEmpty()
+
+                    // Calcular palabra activa
                     val (entryId, cells) = computeActiveWord(grid, savedRow, savedCol, savedDir)
 
                     _state.value = CrosswordGameState(
@@ -196,13 +186,29 @@ class CrosswordGameViewModel(
                         activeCellsInWord = cells,
                         userLetters = userLetters,
                         checkMode = savedMode,
+                        validatedEntryBankIds = valBankIds,
+                        validatedCells = valCells,
+                        isCompleted = isComp,
                         isSessionSaved = true,
                     )
                 } else {
+                    // Estado inicial limpio: seleccionar la primera pista por defecto
+                    val allClues = getAllCluesOrdered(grid)
+                    val firstClue = allClues.firstOrNull()
+                    val startRow = firstClue?.startRow ?: 0
+                    val startCol = firstClue?.startCol ?: 0
+                    val startDir = firstClue?.direction ?: CruciluxDirection.HORIZONTAL
+                    val (entryId, cells) = computeActiveWord(grid, startRow, startCol, startDir)
+
                     _state.value = CrosswordGameState(
                         isLoading = false,
                         board = board,
                         grid = grid,
+                        selectedRow = startRow,
+                        selectedCol = startCol,
+                        activeDirection = startDir,
+                        activeEntryBankId = entryId,
+                        activeCellsInWord = cells,
                     )
                 }
             } catch (e: Exception) {
@@ -215,16 +221,11 @@ class CrosswordGameViewModel(
     }
 
     // ──────────────────────────────────────────────────────────────────────────
-    // Selección de celda
+    // Selección de celda y alternancia de dirección
     // ──────────────────────────────────────────────────────────────────────────
 
     /**
      * Gestiona el toque sobre una celda del tablero.
-     *
-     * Comportamiento:
-     * - Celdas inactivas: ignorado.
-     * - Mismo toque que la celda seleccionada: alterna dirección si pertenece a ambas.
-     * - Toque sobre otra celda: selecciona la celda con la dirección apropiada.
      */
     fun onCellTapped(row: Int, col: Int) {
         val st = _state.value
@@ -238,7 +239,6 @@ class CrosswordGameViewModel(
 
         val newDirection = when {
             isSameCell && hasH && hasV -> {
-                // Alternar dirección al tocar la misma celda con cruce
                 if (st.activeDirection == CruciluxDirection.HORIZONTAL) {
                     CruciluxDirection.VERTICAL
                 } else {
@@ -246,7 +246,6 @@ class CrosswordGameViewModel(
                 }
             }
             hasH && hasV -> {
-                // Nueva celda con cruce: preferir horizontal, o la dirección activa si aplica
                 if (st.activeDirection == CruciluxDirection.VERTICAL) {
                     CruciluxDirection.VERTICAL
                 } else {
@@ -265,40 +264,106 @@ class CrosswordGameViewModel(
             activeDirection = newDirection,
             activeEntryBankId = entryId,
             activeCellsInWord = cells,
-            checkWordResult = null,
         )
     }
 
     // ──────────────────────────────────────────────────────────────────────────
-    // Entrada de letras
+    // Navegación entre pistas (Flechas ‹ y ›)
+    // ──────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Selecciona la pista siguiente en el orden canónico del crucigrama.
+     */
+    fun onNextClue() {
+        val st = _state.value
+        val grid = st.grid ?: return
+        val allClues = getAllCluesOrdered(grid)
+        if (allClues.isEmpty()) return
+
+        val currentIndex = allClues.indexOfFirst {
+            it.bankId == st.activeEntryBankId && it.direction == st.activeDirection
+        }
+        val nextIndex = if (currentIndex < 0 || currentIndex >= allClues.lastIndex) 0 else currentIndex + 1
+        selectClue(allClues[nextIndex])
+    }
+
+    /**
+     * Selecciona la pista anterior en el orden canónico del crucigrama.
+     */
+    fun onPreviousClue() {
+        val st = _state.value
+        val grid = st.grid ?: return
+        val allClues = getAllCluesOrdered(grid)
+        if (allClues.isEmpty()) return
+
+        val currentIndex = allClues.indexOfFirst {
+            it.bankId == st.activeEntryBankId && it.direction == st.activeDirection
+        }
+        val prevIndex = if (currentIndex <= 0) allClues.lastIndex else currentIndex - 1
+        selectClue(allClues[prevIndex])
+    }
+
+    /**
+     * Selecciona directamente una pista específica y sitúa el cursor en su primera casilla editable.
+     */
+    fun selectClue(clue: CrosswordClue) {
+        val st = _state.value
+        val grid = st.grid ?: return
+        val (entryId, cells) = computeActiveWord(grid, clue.startRow, clue.startCol, clue.direction)
+
+        // Ordenar las celdas de la palabra para ubicar la primera casilla editable
+        val sortedCells = wordCellsSorted(grid, clue.bankId, clue.direction)
+        val firstEditable = sortedCells.firstOrNull { it !in st.validatedCells } ?: sortedCells.firstOrNull()
+        val targetRow = firstEditable?.first ?: clue.startRow
+        val targetCol = firstEditable?.second ?: clue.startCol
+
+        _state.value = st.copy(
+            selectedRow = targetRow,
+            selectedCol = targetCol,
+            activeDirection = clue.direction,
+            activeEntryBankId = entryId,
+            activeCellsInWord = cells,
+        )
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // Entrada de letras con validación automática y bloqueo
     // ──────────────────────────────────────────────────────────────────────────
 
     /**
      * Procesa una letra introducida mediante el teclado virtual.
      *
-     * En modo [CheckMode.ASSISTED]: verifica la letra contra la solución interna.
-     * Si es incorrecta, la elimina después de 300 ms y emite feedback accesible.
-     * En modo [CheckMode.CLASSIC]: acepta la letra sin verificación inmediata.
-     *
-     * Nunca expone la [solutionLetter] al exterior.
+     * Reglas:
+     * - Si la celda actual pertenece a una palabra ya validada (bloqueada): ignora la edición y avanza.
+     * - Si no está bloqueada: asigna la letra.
+     * - Verifica automáticamente si alguna palabra que cruza por la celda quedó completada y correcta.
+     * - Si es correcta: marca como VALIDADA, bloquea sus celdas y muestra en verde.
+     * - Si está completa pero incorrecta: se mantiene editable sin borrar ni penalizar.
+     * - Verifica si todo el tablero quedó completado (100%).
      */
     fun onLetterEntered(letter: Char) {
         val st = _state.value
         val grid = st.grid ?: return
+        val board = st.board ?: return
         if (st.selectedRow < 0 || st.selectedCol < 0) return
         val cell = grid.cellAt(st.selectedRow, st.selectedCol) ?: return
         if (!cell.isActive) return
 
         val pos = Pair(st.selectedRow, st.selectedCol)
-        val upperLetter = letter.uppercaseChar()
 
+        // Si la celda está bloqueada (validada), no permitir modificar su letra
+        if (pos in st.validatedCells) {
+            advanceToNextCell(grid, st.selectedRow, st.selectedCol, st.activeDirection, st.activeEntryBankId)
+            return
+        }
+
+        val upperLetter = letter.uppercaseChar()
         val newUserLetters = st.userLetters.toMutableMap()
         newUserLetters[pos] = upperLetter
 
         if (st.checkMode == CheckMode.ASSISTED) {
             val isCorrect = cell.solutionLetter?.uppercaseChar() == upperLetter
             if (!isCorrect) {
-                // En modo asistida: mostrar brevemente y luego eliminar
                 val newIncorrect = st.incorrectCells + pos
                 _state.value = st.copy(
                     userLetters = newUserLetters,
@@ -325,25 +390,25 @@ class CrosswordGameViewModel(
             _state.value = st.copy(userLetters = newUserLetters)
         }
 
-        // Avance automático
-        val next = nextCellInWord(grid, st.selectedRow, st.selectedCol, st.activeDirection, st.activeEntryBankId)
-        if (next != null) {
-            val (nr, nc) = next
-            val (entryId, cells) = computeActiveWord(grid, nr, nc, st.activeDirection)
-            _state.value = _state.value.copy(
-                selectedRow = nr,
-                selectedCol = nc,
-                activeEntryBankId = entryId,
-                activeCellsInWord = cells,
-            )
-        }
+        // Validación automática tras introducir la letra
+        val (valBankIds, valCells) = computeValidatedState(grid, board, newUserLetters)
+        val isCompleted = valBankIds.size == board.entries.size && board.entries.isNotEmpty()
+
+        _state.value = _state.value.copy(
+            validatedEntryBankIds = valBankIds,
+            validatedCells = valCells,
+            isCompleted = isCompleted,
+        )
+
+        // Avance automático a la siguiente casilla de la palabra
+        advanceToNextCell(grid, st.selectedRow, st.selectedCol, st.activeDirection, st.activeEntryBankId)
 
         triggerAutosave()
     }
 
     /**
-     * Borra la letra de la celda seleccionada, o retrocede a la celda anterior
-     * si la celda actual está vacía.
+     * Borra la letra de la celda seleccionada si no está bloqueada.
+     * Si la celda actual está vacía, retrocede a la casilla editable anterior.
      */
     fun onDeleteLetter() {
         val st = _state.value
@@ -351,6 +416,23 @@ class CrosswordGameViewModel(
         if (st.selectedRow < 0 || st.selectedCol < 0) return
 
         val pos = Pair(st.selectedRow, st.selectedCol)
+
+        // Si la casilla actual está bloqueada, no borrar su letra; simplemente retroceder
+        if (pos in st.validatedCells) {
+            val prev = prevCellInWord(grid, st.selectedRow, st.selectedCol, st.activeDirection, st.activeEntryBankId)
+            if (prev != null) {
+                val (pr, pc) = prev
+                val (entryId, cells) = computeActiveWord(grid, pr, pc, st.activeDirection)
+                _state.value = st.copy(
+                    selectedRow = pr,
+                    selectedCol = pc,
+                    activeEntryBankId = entryId,
+                    activeCellsInWord = cells,
+                )
+            }
+            return
+        }
+
         val hasLetter = st.userLetters.containsKey(pos)
 
         if (hasLetter) {
@@ -363,9 +445,16 @@ class CrosswordGameViewModel(
             if (prev != null) {
                 val (pr, pc) = prev
                 val prevPos = Pair(pr, pc)
-                val newLetters = st.userLetters - prevPos
-                val newIncorrect = st.incorrectCells - prevPos
                 val (entryId, cells) = computeActiveWord(grid, pr, pc, st.activeDirection)
+
+                // Solo borrar la letra anterior si no está bloqueada
+                val newLetters = if (prevPos !in st.validatedCells) {
+                    st.userLetters - prevPos
+                } else {
+                    st.userLetters
+                }
+                val newIncorrect = st.incorrectCells - prevPos
+
                 _state.value = st.copy(
                     selectedRow = pr,
                     selectedCol = pc,
@@ -380,56 +469,50 @@ class CrosswordGameViewModel(
     }
 
     // ──────────────────────────────────────────────────────────────────────────
+    // Reiniciar partida (Volver a Jugar)
+    // ──────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Reinicia el tablero actual limpiando las letras y estados de validación.
+     */
+    fun onPlayAgain() {
+        val st = _state.value
+        val grid = st.grid ?: return
+        val allClues = getAllCluesOrdered(grid)
+        val firstClue = allClues.firstOrNull()
+        val startRow = firstClue?.startRow ?: 0
+        val startCol = firstClue?.startCol ?: 0
+        val startDir = firstClue?.direction ?: CruciluxDirection.HORIZONTAL
+        val (entryId, cells) = computeActiveWord(grid, startRow, startCol, startDir)
+
+        _state.value = st.copy(
+            selectedRow = startRow,
+            selectedCol = startCol,
+            activeDirection = startDir,
+            activeEntryBankId = entryId,
+            activeCellsInWord = cells,
+            userLetters = emptyMap(),
+            incorrectCells = emptySet(),
+            validatedEntryBankIds = emptySet(),
+            validatedCells = emptySet(),
+            isCompleted = false,
+        )
+        triggerAutosave()
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
     // Modo de comprobación
     // ──────────────────────────────────────────────────────────────────────────
 
     /**
-     * Cambia el modo de comprobación y limpia los estados de error previos.
+     * Cambia el modo de comprobación.
      */
     fun onSetCheckMode(mode: CheckMode) {
         _state.value = _state.value.copy(
             checkMode = mode,
             incorrectCells = emptySet(),
-            checkWordResult = null,
         )
         triggerAutosave()
-    }
-
-    /**
-     * Comprueba la palabra activa (disponible en modo Clásica).
-     *
-     * No revela automáticamente la letra correcta.
-     * El resultado se elimina automáticamente después de 3 segundos.
-     */
-    fun onCheckWord() {
-        val st = _state.value
-        val grid = st.grid ?: return
-        val activeCells = st.activeCellsInWord
-        if (activeCells.isEmpty()) return
-
-        // Verificar si está completa
-        val incomplete = activeCells.any { (r, c) -> !st.userLetters.containsKey(Pair(r, c)) }
-        if (incomplete) {
-            _state.value = st.copy(checkWordResult = CheckWordResult.Incomplete)
-            scheduleResultClear(2000L)
-            return
-        }
-
-        // Verificar si todas son correctas (internamente, sin exponer solución)
-        val allCorrect = activeCells.all { (r, c) ->
-            val cell = grid.cellAt(r, c) ?: return@all false
-            val userLetter = st.userLetters[Pair(r, c)]
-            userLetter != null && cell.solutionLetter?.uppercaseChar() == userLetter.uppercaseChar()
-        }
-
-        val result = if (allCorrect) CheckWordResult.Correct else CheckWordResult.HasErrors
-        _state.value = st.copy(checkWordResult = result)
-        scheduleResultClear(3000L)
-    }
-
-    /** Elimina el resultado de comprobar de forma manual. */
-    fun clearCheckResult() {
-        _state.value = _state.value.copy(checkWordResult = null)
     }
 
     // ──────────────────────────────────────────────────────────────────────────
@@ -438,19 +521,90 @@ class CrosswordGameViewModel(
 
     /**
      * Guarda la sesión actual inmediatamente.
-     * Llamar cuando el usuario sale de la pantalla o el sistema necesita persistir.
      */
     fun saveSessionNow() {
         triggerAutosave()
     }
 
     // ──────────────────────────────────────────────────────────────────────────
-    // Helpers privados
+    // Helpers privados y de cálculo
     // ──────────────────────────────────────────────────────────────────────────
 
     /**
-     * Devuelve el bankId y el conjunto de coordenadas de la palabra activa
-     * para la dirección dada, a partir de una celda (row, col).
+     * Devuelve todas las pistas del crucigrama ordenadas canónicamente:
+     * por número de pista ascendente, y ante igualdad, HORIZONTAL antes que VERTICAL.
+     */
+    fun getAllCluesOrdered(grid: CrosswordGrid): List<CrosswordClue> {
+        val all = grid.horizontalClues + grid.verticalClues
+        return all.sortedWith(
+            compareBy<CrosswordClue> { it.number }
+                .thenBy { if (it.direction == CruciluxDirection.HORIZONTAL) 0 else 1 }
+        )
+    }
+
+    /**
+     * Determina de forma determinista qué palabras y celdas están validadas.
+     */
+    private fun computeValidatedState(
+        grid: CrosswordGrid,
+        board: CruciluxBoard,
+        userLetters: Map<Pair<Int, Int>, Char>,
+    ): Pair<Set<String>, Set<Pair<Int, Int>>> {
+        val valBankIds = mutableSetOf<String>()
+        val valCells = mutableSetOf<Pair<Int, Int>>()
+
+        for (entry in board.entries) {
+            val isHorizontal = entry.direction == CruciluxDirection.HORIZONTAL
+            var isAllCorrect = true
+            val entryCells = mutableListOf<Pair<Int, Int>>()
+
+            for (i in entry.answer.indices) {
+                val r = if (isHorizontal) entry.row else entry.row + i
+                val c = if (isHorizontal) entry.col + i else entry.col
+                val pos = Pair(r, c)
+                entryCells.add(pos)
+
+                val userCh = userLetters[pos]?.uppercaseChar()
+                val solCh = grid.cellAt(r, c)?.solutionLetter?.uppercaseChar()
+                if (userCh == null || solCh == null || userCh != solCh) {
+                    isAllCorrect = false
+                }
+            }
+
+            if (isAllCorrect) {
+                valBankIds.add(entry.bankId)
+                valCells.addAll(entryCells)
+            }
+        }
+
+        return Pair(valBankIds, valCells)
+    }
+
+    /**
+     * Avanza el cursor a la siguiente casilla de la palabra.
+     */
+    private fun advanceToNextCell(
+        grid: CrosswordGrid,
+        row: Int,
+        col: Int,
+        direction: CruciluxDirection,
+        entryBankId: String?,
+    ) {
+        val next = nextCellInWord(grid, row, col, direction, entryBankId)
+        if (next != null) {
+            val (nr, nc) = next
+            val (entryId, cells) = computeActiveWord(grid, nr, nc, direction)
+            _state.value = _state.value.copy(
+                selectedRow = nr,
+                selectedCol = nc,
+                activeEntryBankId = entryId,
+                activeCellsInWord = cells,
+            )
+        }
+    }
+
+    /**
+     * Devuelve el bankId y las coordenadas de la palabra activa para (row, col).
      */
     private fun computeActiveWord(
         grid: CrosswordGrid,
@@ -482,7 +636,7 @@ class CrosswordGameViewModel(
     }
 
     /**
-     * Devuelve la siguiente celda en la palabra activa, o null si se llegó al final.
+     * Devuelve la siguiente celda en la palabra activa.
      */
     private fun nextCellInWord(
         grid: CrosswordGrid,
@@ -499,7 +653,7 @@ class CrosswordGameViewModel(
     }
 
     /**
-     * Devuelve la celda anterior en la palabra activa, o null si se está al inicio.
+     * Devuelve la celda anterior en la palabra activa.
      */
     private fun prevCellInWord(
         grid: CrosswordGrid,
@@ -542,16 +696,9 @@ class CrosswordGameViewModel(
         }
     }
 
-    /** Elimina automáticamente el checkWordResult tras [delayMs] milisegundos. */
-    private fun scheduleResultClear(delayMs: Long) {
-        viewModelScope.launch {
-            delay(delayMs)
-            _state.value = _state.value.copy(checkWordResult = null)
-        }
-    }
-
     /** Guarda la sesión actual en [GameSessionManager] de forma asíncrona. */
     private fun triggerAutosave() {
+        val mgr = sessionManager ?: return
         val st = _state.value
         val board = st.board ?: return
         viewModelScope.launch(Dispatchers.IO) {
@@ -565,10 +712,10 @@ class CrosswordGameViewModel(
                     activeDirection = if (st.activeDirection == CruciluxDirection.VERTICAL) "V" else "H",
                     checkMode = if (st.checkMode == CheckMode.ASSISTED) "ASSISTED" else "CLASSIC",
                     userLetters = st.userLetters,
-                    isFinished = false,
+                    isFinished = st.isCompleted,
                     lastUpdatedMs = System.currentTimeMillis(),
                 )
-                sessionManager.saveSession(sessionState)
+                mgr.saveSession(sessionState)
             } catch (e: Exception) {
                 // Autoguardado silencioso — no interrumpir la partida
             }

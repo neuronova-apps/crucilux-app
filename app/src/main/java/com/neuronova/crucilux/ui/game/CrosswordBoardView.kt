@@ -32,18 +32,19 @@ import androidx.compose.ui.unit.sp
 import com.neuronova.crucilux.model.CrosswordCell
 import com.neuronova.crucilux.model.CrosswordGrid
 import com.neuronova.crucilux.model.CruciluxDirection
+import com.neuronova.crucilux.ui.theme.SuccessGreen
 
 /**
- * Componente interactivo de cuadrícula para Crucilux — Etapa 2.
+ * Componente interactivo de cuadrícula para Crucilux.
  *
  * Características:
- * - Centrado, cuadrado y responsive para 7x7, 10x10 y 15x15.
+ * - Centrado y responsive para cualquier dimensión dinámica rows × cols.
  * - Celdas activas seleccionables por toque.
- * - Resaltado visual diferenciado para la celda seleccionada (foco) y la palabra activa.
+ * - Resaltado visual para celda activa, palabra activa y celdas validadas (verde).
  * - Muestra las letras introducidas por el usuario (sin revelar soluciones del banco).
- * - Feedback visual de error temporal para el modo Asistida.
+ * - Bloqueo visual e indicación verde accesible para palabras correctas.
  * - Número de pista en la esquina superior izquierda.
- * - Accesibilidad TalkBack completa sin filtrar soluciones.
+ * - Accesibilidad TalkBack completa con descripción de estado validado.
  */
 @Composable
 fun CrosswordBoardView(
@@ -53,6 +54,7 @@ fun CrosswordBoardView(
     activeDirection: CruciluxDirection = CruciluxDirection.HORIZONTAL,
     activeCellsInWord: Set<Pair<Int, Int>> = emptySet(),
     userLetters: Map<Pair<Int, Int>, Char> = emptyMap(),
+    validatedCells: Set<Pair<Int, Int>> = emptySet(),
     incorrectCells: Set<Pair<Int, Int>> = emptySet(),
     onCellTapped: (row: Int, col: Int) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier,
@@ -96,6 +98,7 @@ fun CrosswordBoardView(
                         val cell = grid.cells[row][col]
                         val isSelected = (row == selectedRow && col == selectedCol)
                         val isInActiveWord = activeCellsInWord.contains(Pair(row, col))
+                        val isValidated = validatedCells.contains(Pair(row, col))
                         val isIncorrect = incorrectCells.contains(Pair(row, col))
                         val letter = userLetters[Pair(row, col)]
 
@@ -106,6 +109,7 @@ fun CrosswordBoardView(
                             letterSp = letterSp,
                             isSelected = isSelected,
                             isInActiveWord = isInActiveWord,
+                            isValidated = isValidated,
                             isIncorrect = isIncorrect,
                             userLetter = letter,
                             activeDirection = activeDirection,
@@ -129,6 +133,7 @@ private fun CrosswordCellView(
     letterSp: androidx.compose.ui.unit.TextUnit,
     isSelected: Boolean,
     isInActiveWord: Boolean,
+    isValidated: Boolean,
     isIncorrect: Boolean,
     userLetter: Char?,
     activeDirection: CruciluxDirection,
@@ -149,9 +154,16 @@ private fun CrosswordCellView(
         return
     }
 
-    // Colores y bordes según estado
+    // Colores y bordes según prioridad de estado:
+    // 1. isIncorrect -> Error
+    // 2. isValidated -> Verde accesible
+    // 3. isSelected -> Primario destacado
+    // 4. isInActiveWord -> Resaltado suave
+    // 5. Normal -> Superficie estándar
     val backgroundColor = when {
         isIncorrect -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.65f)
+        isValidated && isSelected -> SuccessGreen.copy(alpha = 0.35f)
+        isValidated -> SuccessGreen.copy(alpha = 0.22f)
         isSelected -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.85f)
         isInActiveWord -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
         else -> MaterialTheme.colorScheme.surface
@@ -160,6 +172,7 @@ private fun CrosswordCellView(
     val borderColor = when {
         isIncorrect -> MaterialTheme.colorScheme.error
         isSelected -> MaterialTheme.colorScheme.primary
+        isValidated -> SuccessGreen.copy(alpha = 0.75f)
         isInActiveWord -> MaterialTheme.colorScheme.primary.copy(alpha = 0.55f)
         else -> MaterialTheme.colorScheme.outline.copy(alpha = 0.7f)
     }
@@ -167,12 +180,14 @@ private fun CrosswordCellView(
     val borderWidth = when {
         isSelected -> 2.dp
         isIncorrect -> 1.5.dp
+        isValidated -> 1.2.dp
         isInActiveWord -> 1.dp
         else -> 0.5.dp
     }
 
     val letterColor = when {
         isIncorrect -> MaterialTheme.colorScheme.error
+        isValidated -> MaterialTheme.colorScheme.onSurface
         isSelected -> MaterialTheme.colorScheme.onPrimaryContainer
         else -> MaterialTheme.colorScheme.onSurface
     }
@@ -185,6 +200,9 @@ private fun CrosswordCellView(
             append(", seleccionada en dirección $dirName")
         } else if (isInActiveWord) {
             append(", en palabra activa")
+        }
+        if (isValidated) {
+            append(", palabra validada")
         }
         if (userLetter != null) {
             append(", letra $userLetter")

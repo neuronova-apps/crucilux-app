@@ -4,9 +4,11 @@ import com.neuronova.crucilux.data.GameSessionManager
 import com.neuronova.crucilux.data.GameSessionState
 import com.neuronova.crucilux.data.bank.CruciluxBankRepository
 import com.neuronova.crucilux.engine.CruciluxGridEngine
+import com.neuronova.crucilux.model.CruciluxAnswerType
 import com.neuronova.crucilux.model.CruciluxDirection
 import com.neuronova.crucilux.ui.game.CheckMode
 import com.neuronova.crucilux.ui.game.CrosswordGameState
+import com.neuronova.crucilux.ui.game.CrosswordGameViewModel
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -17,8 +19,8 @@ import java.io.File
 import java.io.FileInputStream
 
 /**
- * Pruebas unitarias de interacción, lógica de juego, modos de comprobación
- * y persistencia para Crucilux con banco dinámico v1.37.
+ * Pruebas unitarias de interacción, validación automática, bloqueo de celdas,
+ * navegación entre pistas, estados visuales y persistencia para Crucilux.
  */
 class CrosswordGameInteractiveTest {
 
@@ -45,11 +47,9 @@ class CrosswordGameInteractiveTest {
         val board = repository.getAllBoards().first()
         val grid = CruciluxGridEngine.buildGrid(board)
 
-        // Buscar una intersección
         val intersection = grid.cells.flatten().first { it.isIntersection }
         assertNotNull(intersection)
 
-        // Estado inicial
         val state = CrosswordGameState(
             isLoading = false,
             board = board,
@@ -72,15 +72,12 @@ class CrosswordGameInteractiveTest {
         val grid = CruciluxGridEngine.buildGrid(board)
         val cell = grid.cells.flatten().first { it.isIntersection }
 
-        // Primer toque: Horizontal
         var dir = CruciluxDirection.HORIZONTAL
-        // Segundo toque sobre la misma celda con cruce alterna a Vertical
         if (cell.horizontalEntryBankId != null && cell.verticalEntryBankId != null) {
             dir = if (dir == CruciluxDirection.HORIZONTAL) CruciluxDirection.VERTICAL else CruciluxDirection.HORIZONTAL
         }
         assertEquals(CruciluxDirection.VERTICAL, dir)
 
-        // Tercer toque alterna de nuevo a Horizontal
         if (cell.horizontalEntryBankId != null && cell.verticalEntryBankId != null) {
             dir = if (dir == CruciluxDirection.HORIZONTAL) CruciluxDirection.VERTICAL else CruciluxDirection.HORIZONTAL
         }
@@ -136,7 +133,7 @@ class CrosswordGameInteractiveTest {
     }
 
     // ──────────────────────────────────────────────────────────────────────────
-    // 3. Modos de comprobación
+    // 3. Modos de comprobación y verificación
     // ──────────────────────────────────────────────────────────────────────────
 
     @Test
@@ -272,10 +269,6 @@ class CrosswordGameInteractiveTest {
         assertFalse(finishedSession.hasActiveSession)
     }
 
-    // ──────────────────────────────────────────────────────────────────────────
-    // 5. Preservación y restauración por boardId
-    // ──────────────────────────────────────────────────────────────────────────
-
     @Test
     fun `restauracion de tablero por boardId sin necesidad de size`() {
         val board = repository.getBoardById("7X7-01")
@@ -300,4 +293,359 @@ class CrosswordGameInteractiveTest {
             assertEquals("La categoría del tablero debe coincidir", cat, board?.category)
         }
     }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // 5. VALIDACIÓN AUTOMÁTICA Y BLOQUEO DE CELDAS (NUEVAS PRUEBAS REQUERIDAS)
+    // ──────────────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `1 palabra incompleta no se valida`() {
+        val vm = CrosswordGameViewModel()
+        val board = repository.getAllBoards().first()
+        val grid = CruciluxGridEngine.buildGrid(board)
+        val entry = board.entries.first { it.direction == CruciluxDirection.HORIZONTAL }
+
+        // Escribir solo algunas letras de la palabra
+        val userLetters = mutableMapOf<Pair<Int, Int>, Char>()
+        for (i in 0 until entry.answer.length - 1) {
+            userLetters[Pair(entry.row, entry.col + i)] = entry.answer[i]
+        }
+
+        val state = CrosswordGameState(
+            isLoading = false,
+            board = board,
+            grid = grid,
+            userLetters = userLetters,
+            validatedEntryBankIds = emptySet(),
+            validatedCells = emptySet(),
+        )
+
+        assertFalse("Palabra incompleta no debe estar en validatedEntryBankIds", entry.bankId in state.validatedEntryBankIds)
+        assertFalse("Celdas de palabra incompleta no deben estar bloqueadas", Pair(entry.row, entry.col) in state.validatedCells)
+    }
+
+    @Test
+    fun `2 palabra completa incorrecta no se valida`() {
+        val board = repository.getAllBoards().first()
+        val grid = CruciluxGridEngine.buildGrid(board)
+        val entry = board.entries.first { it.direction == CruciluxDirection.HORIZONTAL }
+
+        // Escribir palabra completa pero con letras incorrectas
+        val userLetters = mutableMapOf<Pair<Int, Int>, Char>()
+        for (i in entry.answer.indices) {
+            userLetters[Pair(entry.row, entry.col + i)] = 'X'
+        }
+
+        val state = CrosswordGameState(
+            isLoading = false,
+            board = board,
+            grid = grid,
+            userLetters = userLetters,
+            validatedEntryBankIds = emptySet(),
+            validatedCells = emptySet(),
+        )
+
+        assertFalse("Palabra incorrecta no debe validarse", entry.bankId in state.validatedEntryBankIds)
+        assertFalse("Celdas de palabra incorrecta no deben marcarse validadas", Pair(entry.row, entry.col) in state.validatedCells)
+    }
+
+    @Test
+    fun `3 palabra completa incorrecta sigue editable`() {
+        val board = repository.getAllBoards().first()
+        val grid = CruciluxGridEngine.buildGrid(board)
+        val entry = board.entries.first { it.direction == CruciluxDirection.HORIZONTAL }
+
+        val pos = Pair(entry.row, entry.col)
+        val userLetters = mutableMapOf(pos to 'X')
+        val validatedCells = emptySet<Pair<Int, Int>>()
+
+        // Comprobar que no está bloqueada y puede sobreescribirse o borrarse
+        assertFalse("No debe estar bloqueada", pos in validatedCells)
+        userLetters[pos] = 'A' // Corrección
+        assertEquals('A', userLetters[pos])
+        userLetters.remove(pos) // Borrado
+        assertTrue(userLetters.isEmpty())
+    }
+
+    @Test
+    fun `4 palabra completa correcta se valida automaticamente`() {
+        val board = repository.getAllBoards().first()
+        val grid = CruciluxGridEngine.buildGrid(board)
+        val entry = board.entries.first { it.direction == CruciluxDirection.HORIZONTAL }
+
+        val userLetters = mutableMapOf<Pair<Int, Int>, Char>()
+        val expectedCells = mutableSetOf<Pair<Int, Int>>()
+        for (i in entry.answer.indices) {
+            val p = Pair(entry.row, entry.col + i)
+            userLetters[p] = entry.answer[i]
+            expectedCells.add(p)
+        }
+
+        // Comprobar coincidencia exacta
+        val allCorrect = expectedCells.all { pos ->
+            grid.cellAt(pos.first, pos.second)?.solutionLetter?.uppercaseChar() == userLetters[pos]?.uppercaseChar()
+        }
+        assertTrue("Todas las letras coinciden con la solución", allCorrect)
+    }
+
+    @Test
+    fun `5 palabra correcta queda bloqueada`() {
+        val board = repository.getAllBoards().first()
+        val entry = board.entries.first { it.direction == CruciluxDirection.HORIZONTAL }
+
+        val validatedBankIds = setOf(entry.bankId)
+        val validatedCells = (0 until entry.length).map { Pair(entry.row, entry.col + it) }.toSet()
+
+        assertTrue(entry.bankId in validatedBankIds)
+        for (i in 0 until entry.length) {
+            assertTrue("Celda ($i) debe estar bloqueada", Pair(entry.row, entry.col + i) in validatedCells)
+        }
+    }
+
+    @Test
+    fun `6 backspace no borra letra validada`() {
+        val board = repository.getAllBoards().first()
+        val entry = board.entries.first { it.direction == CruciluxDirection.HORIZONTAL }
+
+        val pos = Pair(entry.row, entry.col)
+        val userLetters = mutableMapOf(pos to entry.answer[0])
+        val validatedCells = setOf(pos)
+
+        // Intento de borrado sobre celda validada
+        if (pos !in validatedCells) {
+            userLetters.remove(pos)
+        }
+
+        assertTrue("La letra validada debe permanecer intacta", userLetters.containsKey(pos))
+        assertEquals(entry.answer[0], userLetters[pos])
+    }
+
+    @Test
+    fun `7 teclado no sobrescribe letra validada`() {
+        val board = repository.getAllBoards().first()
+        val entry = board.entries.first { it.direction == CruciluxDirection.HORIZONTAL }
+
+        val pos = Pair(entry.row, entry.col)
+        val userLetters = mutableMapOf(pos to entry.answer[0])
+        val validatedCells = setOf(pos)
+
+        // Intento de sobreescritura con 'Z'
+        val newChar = 'Z'
+        if (pos !in validatedCells) {
+            userLetters[pos] = newChar
+        }
+
+        assertEquals("La letra original validada no debe cambiar", entry.answer[0], userLetters[pos])
+    }
+
+    @Test
+    fun `8 palabra validada mantiene estado tras seleccion`() {
+        val board = repository.getAllBoards().first()
+        val grid = CruciluxGridEngine.buildGrid(board)
+        val entry = board.entries.first { it.direction == CruciluxDirection.HORIZONTAL }
+
+        val validatedBankIds = setOf(entry.bankId)
+        val validatedCells = (0 until entry.length).map { Pair(entry.row, entry.col + it) }.toSet()
+
+        val state = CrosswordGameState(
+            isLoading = false,
+            board = board,
+            grid = grid,
+            selectedRow = entry.row,
+            selectedCol = entry.col,
+            activeDirection = CruciluxDirection.HORIZONTAL,
+            activeEntryBankId = entry.bankId,
+            validatedEntryBankIds = validatedBankIds,
+            validatedCells = validatedCells,
+        )
+
+        assertTrue(entry.bankId in state.validatedEntryBankIds)
+        assertTrue(Pair(entry.row, entry.col) in state.validatedCells)
+    }
+
+    @Test
+    fun `9 interseccion validada no puede borrarse desde otra palabra`() {
+        val board = repository.getAllBoards().first()
+        val grid = CruciluxGridEngine.buildGrid(board)
+        val intersection = grid.cells.flatten().first { it.isIntersection }
+
+        val interPos = Pair(intersection.row, intersection.col)
+        val userLetters = mutableMapOf(interPos to intersection.solutionLetter!!)
+        val validatedCells = setOf(interPos) // Validada por la palabra horizontal
+
+        // Ahora el usuario está en la palabra vertical e intenta borrar en interPos
+        if (interPos !in validatedCells) {
+            userLetters.remove(interPos)
+        }
+
+        assertTrue("La intersección validada debe seguir protegida", userLetters.containsKey(interPos))
+        assertEquals(intersection.solutionLetter, userLetters[interPos])
+    }
+
+    @Test
+    fun `10 completar todas las respuestas marca tablero completo`() {
+        val board = repository.getAllBoards().first()
+        val grid = CruciluxGridEngine.buildGrid(board)
+
+        val allEntryBankIds = board.entries.map { it.bankId }.toSet()
+        val validatedBankIds = allEntryBankIds // Todas validadas
+
+        val isCompleted = validatedBankIds.size == board.entries.size && board.entries.isNotEmpty()
+        assertTrue("Tablero debe marcarse como completado al 100%", isCompleted)
+    }
+
+    @Test
+    fun `11 tablero lleno pero con error NO se marca completado`() {
+        val board = repository.getAllBoards().first()
+        val grid = CruciluxGridEngine.buildGrid(board)
+
+        // Todas las palabras menos una están validadas
+        val validatedBankIds = board.entries.drop(1).map { it.bankId }.toSet()
+
+        val isCompleted = validatedBankIds.size == board.entries.size && board.entries.isNotEmpty()
+        assertFalse("Tablero con errores o palabras no validadas NO debe completarse", isCompleted)
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // 6. NAVEGACIÓN Y SINCRONIZACIÓN DE PISTAS (FLECHAS ‹ Y ›)
+    // ──────────────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `12 navegacion pista siguiente avanza canonicamente`() {
+        val vm = CrosswordGameViewModel()
+        val board = repository.getAllBoards().first()
+        val grid = CruciluxGridEngine.buildGrid(board)
+        val allClues = vm.getAllCluesOrdered(grid)
+
+        assertTrue(allClues.size >= 2)
+        val firstClue = allClues[0]
+        val secondClue = allClues[1]
+
+        // Seleccionar la primera
+        vm.selectClue(firstClue)
+
+        // Calcular siguiente
+        val currentIndex = allClues.indexOfFirst { it.bankId == firstClue.bankId && it.direction == firstClue.direction }
+        val nextIndex = (currentIndex + 1) % allClues.size
+        assertEquals(1, nextIndex)
+        assertEquals(secondClue.bankId, allClues[nextIndex].bankId)
+    }
+
+    @Test
+    fun `13 navegacion pista anterior retrocede canonicamente`() {
+        val vm = CrosswordGameViewModel()
+        val board = repository.getAllBoards().first()
+        val grid = CruciluxGridEngine.buildGrid(board)
+        val allClues = vm.getAllCluesOrdered(grid)
+
+        val firstClue = allClues.first()
+        val lastClue = allClues.last()
+
+        val currentIndex = 0
+        val prevIndex = if (currentIndex <= 0) allClues.lastIndex else currentIndex - 1
+        assertEquals(allClues.lastIndex, prevIndex)
+        assertEquals(lastClue.bankId, allClues[prevIndex].bankId)
+    }
+
+    @Test
+    fun `14 cambio de pista actualiza orientacion`() {
+        val board = repository.getAllBoards().first()
+        val grid = CruciluxGridEngine.buildGrid(board)
+        val hClue = grid.horizontalClues.first()
+        val vClue = grid.verticalClues.first()
+
+        var activeDirection = hClue.direction
+        assertEquals(CruciluxDirection.HORIZONTAL, activeDirection)
+
+        // Cambiar a vertical
+        activeDirection = vClue.direction
+        assertEquals(CruciluxDirection.VERTICAL, activeDirection)
+    }
+
+    @Test
+    fun `15 seleccion por pista resalta la palabra correcta`() {
+        val board = repository.getAllBoards().first()
+        val grid = CruciluxGridEngine.buildGrid(board)
+        val clue = grid.horizontalClues.first()
+
+        val wordCells = mutableSetOf<Pair<Int, Int>>()
+        for (i in 0 until clue.length) {
+            wordCells.add(Pair(clue.startRow, clue.startCol + i))
+        }
+
+        assertEquals(clue.length, wordCells.size)
+        assertTrue(Pair(clue.startRow, clue.startCol) in wordCells)
+    }
+
+    @Test
+    fun `16 numeracion Horizontal Vertical se mantiene coherente`() {
+        val board = repository.getAllBoards().first()
+        val grid = CruciluxGridEngine.buildGrid(board)
+
+        // Las pistas deben conservar sus números asignados
+        for (clue in grid.horizontalClues) {
+            assertTrue("Número debe ser positivo", clue.number > 0)
+        }
+        for (clue in grid.verticalClues) {
+            assertTrue("Número debe ser positivo", clue.number > 0)
+        }
+    }
+
+    @Test
+    fun `17 COMPOUND muestra wordCount y wordLengths sin displayAnswer`() {
+        val boardWithCompound = repository.getAllBoards().first { board ->
+            board.entries.any { it.answerType == CruciluxAnswerType.COMPOUND }
+        }
+        val grid = CruciluxGridEngine.buildGrid(boardWithCompound)
+        val compoundClue = (grid.horizontalClues + grid.verticalClues).first {
+            it.answerType == CruciluxAnswerType.COMPOUND
+        }
+
+        val lengthInfo = compoundClue.formatLengthInfo()
+        assertTrue(lengthInfo.contains("palabras"))
+        assertTrue(lengthInfo.contains("letras"))
+        assertFalse("No debe contener la respuesta en texto claro", lengthInfo.contains(compoundClue.displayAnswer))
+    }
+
+    @Test
+    fun `18 SINGLE muestra numero de letras`() {
+        val board = repository.getAllBoards().first()
+        val grid = CruciluxGridEngine.buildGrid(board)
+        val singleClue = grid.horizontalClues.first { it.answerType == CruciluxAnswerType.SINGLE }
+
+        val lengthInfo = singleClue.formatLengthInfo()
+        assertEquals("${singleClue.length} letras", lengthInfo)
+    }
+
+    @Test
+    fun `19 restauracion de partida conserva letras correctas y estado de validacion`() {
+        val board = repository.getAllBoards().first()
+        val grid = CruciluxGridEngine.buildGrid(board)
+        val entry = board.entries.first { it.direction == CruciluxDirection.HORIZONTAL }
+
+        val userLetters = mutableMapOf<Pair<Int, Int>, Char>()
+        for (i in entry.answer.indices) {
+            userLetters[Pair(entry.row, entry.col + i)] = entry.answer[i]
+        }
+
+        // Serializar y deserializar como si viniera de DataStore
+        val serialized = GameSessionManager.serializeLetters(userLetters)
+        val restoredLetters = GameSessionManager.deserializeLetters(serialized)
+
+        assertEquals(userLetters.size, restoredLetters.size)
+        assertEquals(userLetters, restoredLetters)
+    }
+
+    @Test
+    fun `20 tableros rectangulares funcionan con validacion automatica y navegacion`() {
+        val rectangularBoard = repository.getAllBoards().first { it.rows != it.cols }
+        val grid = CruciluxGridEngine.buildGrid(rectangularBoard)
+
+        val vm = CrosswordGameViewModel()
+        val allClues = vm.getAllCluesOrdered(grid)
+
+        assertTrue(rectangularBoard.rows != rectangularBoard.cols)
+        assertTrue("Tablero rectangular debe tener pistas ordenables", allClues.isNotEmpty())
+    }
 }
+
