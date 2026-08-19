@@ -31,22 +31,19 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.neuronova.crucilux.data.GameConfigProvider
 import com.neuronova.crucilux.ui.components.CategoryCard
-import com.neuronova.crucilux.ui.components.OptionSelectorGroup
 
 @Composable
 fun PlayScreen(
-    onNavigateToReady: (category: String, size: String) -> Unit,
+    onNavigateToReady: (category: String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    // Las opciones se obtienen directamente del proveedor centralizado basado en el banco real
+    // Las opciones se obtienen directamente del proveedor centralizado basado en el banco real (v1.37)
     val categories = GameConfigProvider.categories
-    val sizes = GameConfigProvider.availableSizes
 
-    // Estado Compose inicializado con los valores predeterminados
+    // Estado Compose inicializado con la categoría predeterminada
     var selectedCategory by remember { mutableStateOf(GameConfigProvider.defaultCategory.displayName) }
-    var selectedSize by remember { mutableStateOf(GameConfigProvider.defaultSize.label) }
 
-    val isFormComplete = selectedCategory.isNotBlank() && selectedSize.isNotBlank()
+    val isFormComplete = selectedCategory.isNotBlank()
 
     Column(
         modifier = modifier
@@ -66,14 +63,14 @@ fun PlayScreen(
         )
         Spacer(Modifier.height(2.dp))
         Text(
-            text = "Configura tu crucigrama",
+            text = "Selecciona una temática para comenzar",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
 
         Spacer(Modifier.height(20.dp))
 
-        // Sección 1: Categoría (10 categorías temáticas reales del banco)
+        // Sección: Categoría (10 categorías temáticas reales del banco)
         SectionHeader(
             title = "Categoría",
             subtitle = "Selecciona la temática de las palabras",
@@ -104,31 +101,13 @@ fun PlayScreen(
             }
         }
 
-        Spacer(Modifier.height(22.dp))
-
-        // Sección 2: Tamaño real del tablero (7x7, 10x10, 15x15)
-        SectionHeader(
-            title = "Tamaño",
-            subtitle = "Dimensiones del tablero",
-        )
-        Spacer(Modifier.height(10.dp))
-        OptionSelectorGroup(
-            options = sizes.map { it.label },
-            selectedOption = selectedSize,
-            onOptionSelected = { selectedSize = it },
-            labelProvider = { it },
-        )
-
         Spacer(Modifier.height(32.dp))
 
         // Botón principal de acción
         Button(
             onClick = {
                 if (isFormComplete) {
-                    onNavigateToReady(
-                        selectedCategory,
-                        selectedSize,
-                    )
+                    onNavigateToReady(selectedCategory)
                 }
             },
             enabled = isFormComplete,
@@ -137,9 +116,9 @@ fun PlayScreen(
                 .height(52.dp)
                 .semantics {
                     contentDescription = if (isFormComplete) {
-                        "Crear crucigrama con categoría $selectedCategory y tamaño $selectedSize"
+                        "Crear crucigrama con temática $selectedCategory"
                     } else {
-                        "Crear crucigrama deshabilitado, selecciona categoría y tamaño"
+                        "Crear crucigrama deshabilitado, selecciona una temática"
                     }
                 },
             shape = RoundedCornerShape(14.dp),

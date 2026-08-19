@@ -6,12 +6,10 @@ import com.neuronova.crucilux.data.bank.CruciluxBankRepository
 import com.neuronova.crucilux.engine.CruciluxGridEngine
 import com.neuronova.crucilux.model.CruciluxDirection
 import com.neuronova.crucilux.ui.game.CheckMode
-import com.neuronova.crucilux.ui.game.CheckWordResult
 import com.neuronova.crucilux.ui.game.CrosswordGameState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -20,7 +18,7 @@ import java.io.FileInputStream
 
 /**
  * Pruebas unitarias de interacción, lógica de juego, modos de comprobación
- * y persistencia para la Etapa 2 de Crucilux.
+ * y persistencia para Crucilux con banco dinámico v1.37.
  */
 class CrosswordGameInteractiveTest {
 
@@ -29,10 +27,10 @@ class CrosswordGameInteractiveTest {
     @Before
     fun setUp() {
         repository = CruciluxBankRepository.getInstance()
-        val assetFile = File("src/main/assets/crucilux_bank_v1_28.json")
+        val assetFile = File("src/main/assets/crucilux_bank_v1_37.json")
         val finalFile = if (assetFile.exists()) assetFile
-        else File("app/src/main/assets/crucilux_bank_v1_28.json")
-        assertTrue("El archivo crucilux_bank_v1_28.json debe existir", finalFile.exists())
+        else File("app/src/main/assets/crucilux_bank_v1_37.json")
+        assertTrue("El archivo crucilux_bank_v1_37.json debe existir", finalFile.exists())
         FileInputStream(finalFile).use { stream ->
             repository.loadFromStream(stream)
         }
@@ -44,7 +42,7 @@ class CrosswordGameInteractiveTest {
 
     @Test
     fun `seleccion inicial de celda activa con cruce selecciona horizontal`() {
-        val board = repository.getBoardsBySize("7x7").first()
+        val board = repository.getAllBoards().first()
         val grid = CruciluxGridEngine.buildGrid(board)
 
         // Buscar una intersección
@@ -70,7 +68,7 @@ class CrosswordGameInteractiveTest {
 
     @Test
     fun `cambio de orientacion por segundo toque en misma celda con cruce`() {
-        val board = repository.getBoardsBySize("7x7").first()
+        val board = repository.getAllBoards().first()
         val grid = CruciluxGridEngine.buildGrid(board)
         val cell = grid.cells.flatten().first { it.isIntersection }
 
@@ -91,10 +89,9 @@ class CrosswordGameInteractiveTest {
 
     @Test
     fun `celda con solo entrada vertical mantiene direccion vertical`() {
-        val board = repository.getBoardsBySize("7x7").first()
+        val board = repository.getAllBoards().first()
         val grid = CruciluxGridEngine.buildGrid(board)
 
-        // Buscar celda que sea solo vertical
         val vOnlyCell = grid.cells.flatten().firstOrNull {
             it.isActive && it.verticalEntryBankId != null && it.horizontalEntryBankId == null
         }
@@ -116,7 +113,7 @@ class CrosswordGameInteractiveTest {
 
     @Test
     fun `entrada de letra almacena en userLetters sin modificar solutionLetter`() {
-        val board = repository.getBoardsBySize("7x7").first()
+        val board = repository.getAllBoards().first()
         val grid = CruciluxGridEngine.buildGrid(board)
         val cell = grid.cells.flatten().first { it.isActive }
 
@@ -125,9 +122,7 @@ class CrosswordGameInteractiveTest {
         userLetters[pos] = 'X'
 
         assertEquals('X', userLetters[pos])
-        // La solución original del banco permanece intacta
         assertNotNull(cell.solutionLetter)
-        assertTrue(cell.solutionLetter != 'X' || cell.solutionLetter == 'X')
     }
 
     @Test
@@ -146,7 +141,7 @@ class CrosswordGameInteractiveTest {
 
     @Test
     fun `modo clasica acepta letras incorrectas sin marcarlas de inmediato`() {
-        val board = repository.getBoardsBySize("7x7").first()
+        val board = repository.getAllBoards().first()
         val grid = CruciluxGridEngine.buildGrid(board)
         val cell = grid.cells.flatten().first { it.isActive }
 
@@ -167,7 +162,6 @@ class CrosswordGameInteractiveTest {
     @Test
     fun `comprobar palabra activa detecta palabra incompleta`() {
         val activeCells = setOf(Pair(0, 0), Pair(0, 1), Pair(0, 2), Pair(0, 3))
-        // Solo 2 letras introducidas
         val userLetters = mapOf(Pair(0, 0) to 'A', Pair(0, 1) to 'B')
 
         val isIncomplete = activeCells.any { it !in userLetters }
@@ -176,11 +170,10 @@ class CrosswordGameInteractiveTest {
 
     @Test
     fun `comprobar palabra activa detecta palabra correcta`() {
-        val board = repository.getBoardsBySize("7x7").first()
+        val board = repository.getAllBoards().first()
         val grid = CruciluxGridEngine.buildGrid(board)
         val hEntry = board.entries.first { it.direction == CruciluxDirection.HORIZONTAL }
 
-        // Rellenar exactamente con la solución
         val userLetters = mutableMapOf<Pair<Int, Int>, Char>()
         val activeCells = mutableSetOf<Pair<Int, Int>>()
         for (i in hEntry.answer.indices) {
@@ -199,11 +192,10 @@ class CrosswordGameInteractiveTest {
 
     @Test
     fun `comprobar palabra activa detecta errores sin revelar la respuesta`() {
-        val board = repository.getBoardsBySize("7x7").first()
+        val board = repository.getAllBoards().first()
         val grid = CruciluxGridEngine.buildGrid(board)
         val hEntry = board.entries.first { it.direction == CruciluxDirection.HORIZONTAL }
 
-        // Rellenar con letras erróneas
         val userLetters = mutableMapOf<Pair<Int, Int>, Char>()
         val activeCells = mutableSetOf<Pair<Int, Int>>()
         for (i in hEntry.answer.indices) {
@@ -281,8 +273,19 @@ class CrosswordGameInteractiveTest {
     }
 
     // ──────────────────────────────────────────────────────────────────────────
-    // 5. Preservación del boardId y categorías
+    // 5. Preservación y restauración por boardId
     // ──────────────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `restauracion de tablero por boardId sin necesidad de size`() {
+        val board = repository.getBoardById("7X7-01")
+        assertNotNull("Debe encontrar el tablero 7X7-01", board)
+        assertEquals("7X7-01", board?.id)
+
+        val grid = CruciluxGridEngine.buildGrid(board!!)
+        assertEquals(board.rows, grid.rows)
+        assertEquals(board.cols, grid.cols)
+    }
 
     @Test
     fun `todas las 10 categorias estan disponibles y tienen tableros asignables`() {
@@ -292,14 +295,9 @@ class CrosswordGameInteractiveTest {
         )
 
         for (cat in categories) {
-            val board7 = repository.obtenerCrucigrama(cat, "7x7")
-            assertNotNull("Categoría $cat debe tener tablero 7x7", board7)
-
-            val board10 = repository.obtenerCrucigrama(cat, "10x10")
-            assertNotNull("Categoría $cat debe tener tablero 10x10", board10)
-
-            val board15 = repository.obtenerCrucigrama(cat, "15x15")
-            assertNotNull("Categoría $cat debe tener tablero 15x15", board15)
+            val board = repository.obtenerCrucigrama(cat)
+            assertNotNull("Categoría $cat debe tener tablero asignable", board)
+            assertEquals("La categoría del tablero debe coincidir", cat, board?.category)
         }
     }
 }

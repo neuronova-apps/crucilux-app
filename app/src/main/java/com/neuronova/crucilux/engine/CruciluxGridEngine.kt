@@ -7,27 +7,27 @@ import com.neuronova.crucilux.model.CruciluxBoard
 import com.neuronova.crucilux.model.CruciluxDirection
 
 /**
- * Motor de cuadrícula de Crucilux.
+ * Motor de cuadrícula de Crucilux (v1.37 / schemaVersion 2).
  *
  * Construye un [CrosswordGrid] a partir de un [CruciluxBoard] real del banco maestro.
- * Recibe directamente el tipo de tablero definido en CruciluxBankModels.kt —
- * no crea modelos paralelos del banco.
+ * Sostiene dimensiones dinámicas [rows × cols] (incluyendo tableros rectangulares)
+ * sin asumir nunca que rows == cols.
  *
  * Responsabilidades:
- * 1. Crear la matriz de dimensiones reales del tablero.
+ * 1. Crear la matriz de dimensiones reales del tablero (rows × cols).
  * 2. Inicializar todas las celdas como inactivas.
  * 3. Recorrer cada entrada del banco.
- * 4. Determinar la dirección real (horizontal/vertical).
- * 5. Recorrer cada carácter de la respuesta.
- * 6. Calcular la coordenada exacta de cada letra.
+ * 4. Determinar la dirección real (HORIZONTAL / VERTICAL).
+ * 5. Recorrer cada carácter de la respuesta continua.
+ * 6. Calcular la coordenada exacta (r, c) de cada letra.
  * 7. Activar la celda correspondiente.
  * 8. Asociar la entrada horizontal o vertical a la celda.
- * 9. Validar que la posición esté dentro de límites.
+ * 9. Validar que la posición esté dentro de los límites estrictos (0 <= r < rows, 0 <= c < cols).
  * 10. Validar que la longitud declarada coincida con la longitud real de la respuesta.
  * 11. Validar intersecciones: si una celda ya tiene letra, confirmar que coincida.
  * 12. Si no coincide, lanzar [CruciluxGridEngineException] — no corregir silenciosamente.
  * 13. Asignar numeración usando el número real de la entrada (no recalcular).
- * 14. Generar las listas de pistas horizontales y verticales ordenadas por número.
+ * 14. Generar las listas de pistas horizontales y verticales ordenadas por número con metadatos de respuestas compuestas.
  */
 object CruciluxGridEngine {
 
@@ -43,7 +43,6 @@ object CruciluxGridEngine {
         val cols = board.cols
 
         // Matriz mutable de celdas — se irá rellenando entrada por entrada.
-        // Usamos un array 2D de datos mutables para poder modificar celda a celda.
         val cellData = Array(rows) { r ->
             Array(cols) { c ->
                 MutableCellData(row = r, col = c)
@@ -66,11 +65,11 @@ object CruciluxGridEngine {
                 val r = if (isHorizontal) entry.row else entry.row + charIndex
                 val c = if (isHorizontal) entry.col + charIndex else entry.col
 
-                // Validar límites
+                // Validar límites dinámicos (soporta tableros rectangulares rows != cols)
                 if (r < 0 || r >= rows || c < 0 || c >= cols) {
                     throw CruciluxGridEngineException(
                         "Tablero ${board.id}: entrada ${entry.bankId} sale de límites " +
-                            "en índice $charIndex → ($r, $c), tablero ${rows}x${cols}"
+                            "en índice $charIndex → ($r, $c), dimensiones ${rows}x${cols}"
                     )
                 }
 
@@ -86,7 +85,7 @@ object CruciluxGridEngine {
                     )
                 }
 
-                // Activar celda y asignar letra interna (solo para validación, nunca para UI)
+                // Activar celda y asignar letra interna (solo para validación interna, nunca para UI)
                 cell.isActive = true
                 cell.solutionLetter = letter
 
@@ -100,16 +99,9 @@ object CruciluxGridEngine {
                 // Si es el inicio de la palabra, marcar y asignar número de pista
                 if (charIndex == 0) {
                     cell.isWordStart = true
-                    // Si ya había otro número asignado (otra entrada comienza aquí),
-                    // conservar el menor (o el existente). En el banco bien formado,
-                    // una misma celda de inicio puede tener H y V con el mismo número.
-                    // Usamos el número real de la entrada, no lo recalculamos.
                     if (cell.clueNumber == null) {
                         cell.clueNumber = entry.number
-                    }
-                    // Si hay conflicto de número (dos entradas distintas inician aquí con
-                    // distinto número), conservamos el menor para consistencia visual.
-                    else if (entry.number < cell.clueNumber!!) {
+                    } else if (entry.number < cell.clueNumber!!) {
                         cell.clueNumber = entry.number
                     }
                 }
@@ -133,7 +125,7 @@ object CruciluxGridEngine {
             }
         }
 
-        // Construir listas de pistas (sin respuesta)
+        // Construir listas de pistas (sin respuesta visible en clue)
         val horizontalClues: List<CrosswordClue> = board.entries
             .filter { it.direction == CruciluxDirection.HORIZONTAL }
             .map { entry ->
@@ -145,6 +137,10 @@ object CruciluxGridEngine {
                     length = entry.length,
                     startRow = entry.row,
                     startCol = entry.col,
+                    answerType = entry.answerType,
+                    wordCount = entry.wordCount,
+                    wordLengths = entry.wordLengths,
+                    displayAnswer = entry.displayAnswer,
                 )
             }
             .sortedBy { it.number }
@@ -160,6 +156,10 @@ object CruciluxGridEngine {
                     length = entry.length,
                     startRow = entry.row,
                     startCol = entry.col,
+                    answerType = entry.answerType,
+                    wordCount = entry.wordCount,
+                    wordLengths = entry.wordLengths,
+                    displayAnswer = entry.displayAnswer,
                 )
             }
             .sortedBy { it.number }

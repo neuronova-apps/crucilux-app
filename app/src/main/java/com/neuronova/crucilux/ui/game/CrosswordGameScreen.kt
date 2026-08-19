@@ -61,9 +61,11 @@ import com.neuronova.crucilux.model.CruciluxDirection
 import com.neuronova.crucilux.ui.theme.SuccessGreen
 
 /**
- * Pantalla interactiva de juego de Crucilux — Etapa 2.
+ * Pantalla interactiva de juego de Crucilux — Etapa 2 (Banco dinámico v1.37).
  *
  * Características:
+ * - Soporta dimensiones dinámicas de tablero (rows × cols).
+ * - Muestra información de palabras compuestas (ej. "2 palabras · 6 + 9 letras") sin revelar respuestas.
  * - Selección de celdas y alternancia H/V.
  * - Resaltado de palabra activa y celda con foco.
  * - Teclado virtual adaptativo en español.
@@ -71,7 +73,7 @@ import com.neuronova.crucilux.ui.theme.SuccessGreen
  * - Modos de comprobación: Clásica y Asistida.
  * - Comprobar palabra activa en modo Clásica.
  * - Autoguardado transparente en DataStore.
- * - Barra activa de pista superior.
+ * - Barra activa de pista superior con detalles de longitud.
  * - Navegación e integración accesible para TalkBack.
  */
 @Composable
@@ -100,7 +102,7 @@ fun CrosswordGameScreen(
         // ── Cabecera ─────────────────────────────────────────────────────────
         GameHeader(
             category = state.board?.category ?: "",
-            size = state.board?.size ?: "",
+            dimensions = if (state.board != null) "${state.board!!.rows} × ${state.board!!.cols}" else "",
             boardId = state.board?.id ?: "",
             checkMode = state.checkMode,
             onSetCheckMode = { viewModel.onSetCheckMode(it) },
@@ -255,12 +257,12 @@ fun CrosswordGameScreen(
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Cabecera con selector compacto de modo de comprobación.
+ * Cabecera con selector compacto de modo de comprobación y dimensiones del tablero.
  */
 @Composable
 private fun GameHeader(
     category: String,
-    size: String,
+    dimensions: String,
     boardId: String,
     checkMode: CheckMode,
     onSetCheckMode: (CheckMode) -> Unit,
@@ -294,9 +296,9 @@ private fun GameHeader(
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                if (size.isNotBlank()) {
+                if (dimensions.isNotBlank()) {
                     Text(
-                        text = size,
+                        text = dimensions,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -380,7 +382,7 @@ private fun CheckModeChip(
 }
 
 /**
- * Tarjeta superior que muestra la pista de la palabra activa en tiempo real.
+ * Tarjeta superior que muestra la pista de la palabra activa en tiempo real con longitud y tipo compuesto.
  */
 @Composable
 private fun ActiveClueCard(
@@ -414,11 +416,6 @@ private fun ActiveClueCard(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             if (activeClue != null) {
-                val dirIcon = if (activeClue.direction == CruciluxDirection.HORIZONTAL) {
-                    Icons.AutoMirrored.Filled.ArrowForward
-                } else {
-                    Icons.Default.SwapVert
-                }
                 val dirText = if (activeClue.direction == CruciluxDirection.HORIZONTAL) "H" else "V"
 
                 Box(
@@ -427,26 +424,28 @@ private fun ActiveClueCard(
                         .background(MaterialTheme.colorScheme.primaryContainer)
                         .padding(horizontal = 6.dp, vertical = 2.dp),
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(2.dp),
-                    ) {
-                        Text(
-                            text = "${activeClue.number}$dirText",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer,
-                        )
-                    }
+                    Text(
+                        text = "${activeClue.number}$dirText",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    )
                 }
 
-                Text(
-                    text = activeClue.clue,
-                    style = MaterialTheme.typography.bodySmall,
-                    fontWeight = FontWeight.Medium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.weight(1f),
-                )
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = activeClue.clue,
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Text(
+                        text = activeClue.formatLengthInfo(),
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Normal,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
             } else {
                 Icon(
                     imageVector = Icons.Default.Info,
@@ -586,6 +585,7 @@ private fun InteractiveClueItem(
     modifier: Modifier = Modifier,
 ) {
     val dirLabel = if (clue.direction == CruciluxDirection.HORIZONTAL) "horizontal" else "vertical"
+    val lengthDesc = clue.formatLengthInfo()
 
     Row(
         modifier = modifier
@@ -598,7 +598,7 @@ private fun InteractiveClueItem(
             .clickable(role = Role.Button, onClick = onClick)
             .padding(horizontal = 6.dp, vertical = 5.dp)
             .semantics {
-                contentDescription = "Pista $dirLabel número ${clue.number}: ${clue.clue}${if (isActive) ", seleccionada" else ""}"
+                contentDescription = "Pista $dirLabel número ${clue.number}: ${clue.clue}, $lengthDesc${if (isActive) ", seleccionada" else ""}"
             },
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.Top,
@@ -611,12 +611,19 @@ private fun InteractiveClueItem(
             modifier = Modifier.padding(top = 1.dp),
         )
 
-        Text(
-            text = clue.clue,
-            style = MaterialTheme.typography.bodySmall,
-            fontWeight = if (isActive) FontWeight.SemiBold else FontWeight.Normal,
-            color = if (isActive) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.weight(1f),
-        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = clue.clue,
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = if (isActive) FontWeight.SemiBold else FontWeight.Normal,
+                color = if (isActive) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                text = lengthDesc,
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Normal,
+                color = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+            )
+        }
     }
 }

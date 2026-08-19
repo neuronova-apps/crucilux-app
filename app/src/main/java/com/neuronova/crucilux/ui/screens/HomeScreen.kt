@@ -656,8 +656,16 @@ private fun ContinueGameCard(
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface,
                     )
+                    val subtitle = buildString {
+                        append(session.category.ifBlank { "Crucigrama" })
+                        if (session.boardSize.isNotBlank()) {
+                            append(" · ")
+                            append(session.boardSize)
+                        }
+                        append(" (${session.filledCellCount} celdas llenadas)")
+                    }
                     Text(
-                        text = "${session.category.ifBlank { "Crucigrama" }} · ${session.boardSize} (${session.filledCellCount} celdas llenadas)",
+                        text = subtitle,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

@@ -1,6 +1,7 @@
 package com.neuronova.crucilux.data.bank
 
 import android.content.Context
+import com.neuronova.crucilux.model.CruciluxAnswerType
 import com.neuronova.crucilux.model.CruciluxBankMetadata
 import com.neuronova.crucilux.model.CruciluxBoard
 import com.neuronova.crucilux.model.CruciluxDirection
@@ -11,10 +12,12 @@ import java.io.InputStream
 import java.io.InputStreamReader
 
 /**
- * Repositorio local para la lectura y consulta del banco maestro validado de Crucilux (v1.28).
+ * Repositorio local para la lectura y consulta del banco maestro validado de Crucilux (v1.37).
  *
  * Características:
- * - Funciona 100% offline desde assets locales (`crucilux_bank_v1_28.json`).
+ * - Funciona 100% offline desde assets locales (`crucilux_bank_v1_37.json`).
+ * - Soporta schemaVersion 2 y bankVersion 1.37 con dimensiones dinámicas [rows, cols].
+ * - Soporta respuestas simples (SINGLE) y compuestas (COMPOUND).
  * - No utiliza bases de datos externas, APIs, Firebase ni Room.
  * - Mantiene los 300 tableros y 2.000 entradas cacheados en memoria de forma inmutable tras la carga.
  */
@@ -23,7 +26,7 @@ class CruciluxBankRepository private constructor() {
     private var metadata: CruciluxBankMetadata? = null
     private var boards: List<CruciluxBoard> = emptyList()
     private var boardsById: Map<String, CruciluxBoard> = emptyMap()
-    private var boardsByCategoryAndSize: Map<Pair<String, String>, List<CruciluxBoard>> = emptyMap()
+    private var boardsByCategory: Map<String, List<CruciluxBoard>> = emptyMap()
 
     @Volatile
     private var isLoaded: Boolean = false
@@ -50,29 +53,18 @@ class CruciluxBankRepository private constructor() {
     }
 
     /**
-     * Parsea la cadena JSON e indexa los tableros en memoria.
+     * Parsea la cadena JSON e indexa los 300 tableros y 2.000 entradas en memoria.
      */
     @Synchronized
     fun loadFromJsonString(jsonString: String) {
         val root = JSONObject(jsonString)
 
-        val schemaVersion = root.optString("schemaVersion", "1.0")
-        val bankVersion = root.optString("bankVersion", "1.28")
+        val schemaVersion = root.optInt("schemaVersion", 2)
+        val bankVersion = root.optString("bankVersion", "1.37")
         val app = root.optString("app", "Crucilux")
         val coordinateBase = root.optInt("coordinateBase", 0)
-        val totalBoards = root.optInt("totalBoards", 0)
-        val totalEntries = root.optInt("totalEntries", 0)
-
-        // Parsear mapa de tamaños
-        val sizesMap = mutableMapOf<String, Int>()
-        val sizesObj = root.optJSONObject("sizes")
-        if (sizesObj != null) {
-            val keys = sizesObj.keys()
-            while (keys.hasNext()) {
-                val key = keys.next()
-                sizesMap[key] = sizesObj.getInt(key)
-            }
-        }
+        val totalBoards = root.optInt("totalBoards", 300)
+        val totalEntries = root.optInt("totalEntries", 2000)
 
         // Parsear lista de categorías
         val categoriesList = mutableListOf<String>()
@@ -90,7 +82,6 @@ class CruciluxBankRepository private constructor() {
             coordinateBase = coordinateBase,
             totalBoards = totalBoards,
             totalEntries = totalEntries,
-            sizes = sizesMap,
             categories = categoriesList,
         )
 
@@ -101,7 +92,6 @@ class CruciluxBankRepository private constructor() {
             for (i in 0 until boardsArray.length()) {
                 val bObj = boardsArray.getJSONObject(i)
                 val id = bObj.getString("id")
-                val size = bObj.getString("size")
                 val rows = bObj.getInt("rows")
                 val cols = bObj.getInt("cols")
                 val category = bObj.getString("category")
@@ -112,10 +102,30 @@ class CruciluxBankRepository private constructor() {
                 if (entriesArray != null) {
                     for (j in 0 until entriesArray.length()) {
                         val eObj = entriesArray.getJSONObject(j)
+                        val directionStr = eObj.getString("direction")
+                        val answerStr = eObj.getString("answer")
+                        val displayAnswerStr = eObj.optString("displayAnswer", answerStr)
+                        val answerTypeStr = eObj.optString("answerType", "SINGLE")
+                        val wordCountInt = eObj.optInt("wordCount", 1)
+
+                        val wordLengthsList = mutableListOf<Int>()
+                        val wordLengthsArray = eObj.optJSONArray("wordLengths")
+                        if (wordLengthsArray != null) {
+                            for (k in 0 until wordLengthsArray.length()) {
+                                wordLengthsList.add(wordLengthsArray.getInt(k))
+                            }
+                        } else {
+                            wordLengthsList.add(eObj.optInt("length", answerStr.length))
+                        }
+
                         val entry = CruciluxEntry(
                             number = eObj.getInt("number"),
-                            direction = CruciluxDirection.fromValue(eObj.getString("direction")),
-                            answer = eObj.getString("answer"),
+                            direction = CruciluxDirection.fromValue(directionStr),
+                            answer = answerStr,
+                            displayAnswer = displayAnswerStr,
+                            answerType = CruciluxAnswerType.fromValue(answerTypeStr),
+                            wordCount = wordCountInt,
+                            wordLengths = wordLengthsList,
                             length = eObj.getInt("length"),
                             row = eObj.getInt("row"),
                             col = eObj.getInt("col"),
@@ -129,7 +139,6 @@ class CruciluxBankRepository private constructor() {
                 parsedBoards.add(
                     CruciluxBoard(
                         id = id,
-                        size = size,
                         rows = rows,
                         cols = cols,
                         category = category,
@@ -142,7 +151,7 @@ class CruciluxBankRepository private constructor() {
 
         this.boards = parsedBoards
         this.boardsById = parsedBoards.associateBy { it.id }
-        this.boardsByCategoryAndSize = parsedBoards.groupBy { Pair(it.category.lowercase(), it.size.lowercase()) }
+        this.boardsByCategory = parsedBoards.groupBy { it.category.trim().lowercase() }
         this.isLoaded = true
     }
 
@@ -159,40 +168,16 @@ class CruciluxBankRepository private constructor() {
     }
 
     /**
-     * Retorna la lista oficial de tamaños de tablero disponibles en el banco maestro.
-     */
-    fun getSizes(): List<String> {
-        return metadata?.sizes?.keys?.toList() ?: boards.map { it.size }.distinct()
-    }
-
-    /**
-     * Retorna todos los tableros cargados en memoria.
+     * Retorna todos los tableros cargados en memoria (exactamente 300).
      */
     fun getAllBoards(): List<CruciluxBoard> = boards
 
     /**
-     * Retorna los tableros que pertenecen a una categoría específica.
+     * Retorna los tableros que pertenecen a una categoría específica (exactamente 30 por categoría).
      */
     fun getBoardsByCategory(category: String): List<CruciluxBoard> {
-        return boards.filter { it.category.equals(category, ignoreCase = true) }
-    }
-
-    /**
-     * Retorna los tableros que pertenecen a un tamaño específico ("7x7", "10x10", "15x15").
-     */
-    fun getBoardsBySize(size: String): List<CruciluxBoard> {
-        return boards.filter { it.size.equals(size, ignoreCase = true) }
-    }
-
-    /**
-     * Retorna la lista de tableros que coinciden exactamente con la categoría y el tamaño dados.
-     * En el banco v1.28 existen exactamente 10 tableros para cada combinación.
-     */
-    fun getBoards(category: String, size: String): List<CruciluxBoard> {
-        val key = Pair(category.trim().lowercase(), size.trim().lowercase())
-        return boardsByCategoryAndSize[key] ?: boards.filter {
-            it.category.equals(category, ignoreCase = true) && it.size.equals(size, ignoreCase = true)
-        }
+        val key = category.trim().lowercase()
+        return boardsByCategory[key] ?: boards.filter { it.category.equals(category, ignoreCase = true) }
     }
 
     /**
@@ -203,14 +188,18 @@ class CruciluxBankRepository private constructor() {
     }
 
     /**
-     * Obtiene un crucigrama para la partida según la categoría y tamaño seleccionados.
-     * Retorna el primer tablero disponible para la combinación o busca por coincidencia aproximada.
+     * Obtiene un crucigrama para la partida según la categoría seleccionada.
+     * Retorna el primer tablero disponible para la categoría.
      */
-    fun obtenerCrucigrama(category: String, size: String): CruciluxBoard? {
-        val matchingBoards = getBoards(category, size)
-        return matchingBoards.firstOrNull()
-            ?: getBoardsBySize(size).firstOrNull()
-            ?: boards.firstOrNull()
+    fun obtenerCrucigrama(category: String): CruciluxBoard? {
+        return getBoardsByCategory(category).firstOrNull() ?: boards.firstOrNull()
+    }
+
+    /**
+     * Sobrecarga de compatibilidad para llamadas históricas que especificaban tamaño.
+     */
+    fun obtenerCrucigrama(category: String, size: String?): CruciluxBoard? {
+        return obtenerCrucigrama(category)
     }
 
     /**
@@ -219,7 +208,7 @@ class CruciluxBankRepository private constructor() {
     fun isReady(): Boolean = isLoaded
 
     companion object {
-        const val ASSET_FILE_NAME = "crucilux_bank_v1_28.json"
+        const val ASSET_FILE_NAME = "crucilux_bank_v1_37.json"
 
         @Volatile
         private var instance: CruciluxBankRepository? = null

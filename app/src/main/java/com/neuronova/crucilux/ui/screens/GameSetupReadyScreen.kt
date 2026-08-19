@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.GridOn
 import androidx.compose.material.icons.filled.Tag
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -28,7 +29,6 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -56,13 +56,13 @@ import kotlinx.coroutines.launch
 
 /**
  * Pantalla de confirmación "Partida preparada".
- * Muestra el resumen de la configuración seleccionada por el usuario (Categoría y Tamaño)
- * y el tablero asignado desde el banco maestro validado.
+ * Muestra el resumen de la temática seleccionada por el usuario
+ * y el tablero asignado desde el banco maestro validado (v1.37) con dimensiones dinámicas.
  */
 @Composable
 fun GameSetupReadyScreen(
     category: String,
-    size: String,
+    size: String? = null,
     onVolver: () -> Unit,
     onIniciar: (boardId: String) -> Unit = {},
     modifier: Modifier = Modifier,
@@ -74,8 +74,8 @@ fun GameSetupReadyScreen(
     var showOverwriteDialog by remember { mutableStateOf(false) }
 
     val repository = remember { CruciluxBankRepository.getInstance() }
-    val assignedBoard = remember(category, size) {
-        repository.obtenerCrucigrama(category, size)
+    val assignedBoard = remember(category) {
+        repository.obtenerCrucigrama(category)
     }
 
     Column(
@@ -154,17 +154,17 @@ fun GameSetupReadyScreen(
                     value = category,
                 )
 
-                SummaryItemRow(
-                    icon = Icons.Default.GridOn,
-                    label = "Tamaño",
-                    value = size,
-                )
-
                 if (assignedBoard != null) {
                     SummaryItemRow(
                         icon = Icons.Default.Tag,
                         label = "Tablero asignado",
                         value = assignedBoard.id,
+                    )
+
+                    SummaryItemRow(
+                        icon = Icons.Default.GridOn,
+                        label = "Dimensiones",
+                        value = "${assignedBoard.rows} × ${assignedBoard.cols}",
                     )
 
                     SummaryItemRow(
@@ -229,7 +229,7 @@ fun GameSetupReadyScreen(
                 },
                 text = {
                     Text(
-                        text = "Ya tienes una partida guardada (${sessionState.category.ifBlank { "Crucigrama" }} · ${sessionState.boardSize}).\n\n¿Deseas continuar con tu partida anterior o iniciar esta nueva partida? Iniciar una nueva reemplazará el guardado previo.",
+                        text = "Ya tienes una partida guardada (${sessionState.category.ifBlank { "Crucigrama" }}).\n\n¿Deseas continuar con tu partida anterior o iniciar esta nueva partida? Iniciar una nueva reemplazará el guardado previo.",
                         style = MaterialTheme.typography.bodyMedium,
                     )
                 },

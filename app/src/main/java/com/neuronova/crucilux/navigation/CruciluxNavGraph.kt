@@ -27,9 +27,9 @@ sealed class Screen(val route: String) {
     object Progress       : Screen("progress")
     object Settings       : Screen("settings")
     object About          : Screen("about")
-    object GameSetupReady : Screen("game_setup_ready/{category}/{size}") {
-        fun createRoute(category: String, size: String): String {
-            return "game_setup_ready/$category/$size"
+    object GameSetupReady : Screen("game_setup_ready/{category}") {
+        fun createRoute(category: String): String {
+            return "game_setup_ready/$category"
         }
     }
     object Game : Screen("game/{boardId}") {
@@ -88,9 +88,9 @@ fun CruciluxNavGraph(
         }
         composable(Screen.Play.route) {
             PlayScreen(
-                onNavigateToReady = { category, size ->
+                onNavigateToReady = { category ->
                     navController.navigate(
-                        Screen.GameSetupReady.createRoute(category, size)
+                        Screen.GameSetupReady.createRoute(category)
                     ) {
                         launchSingleTop = true
                     }
@@ -123,15 +123,12 @@ fun CruciluxNavGraph(
             route = Screen.GameSetupReady.route,
             arguments = listOf(
                 navArgument("category") { type = NavType.StringType },
-                navArgument("size") { type = NavType.StringType },
             ),
         ) { backStackEntry ->
             val category = backStackEntry.arguments?.getString("category") ?: GameConfigProvider.defaultCategory.displayName
-            val size = backStackEntry.arguments?.getString("size") ?: GameConfigProvider.defaultSize.label
 
             GameSetupReadyScreen(
                 category = category,
-                size = size,
                 onVolver = {
                     navController.popBackStack()
                 },
