@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "product": "Crucilux",
+  "web": {
+    "role": "Acceso web oficial",
+    "available": true,
+    "url": "https://neuronova-apps.github.io/crucilux-app/"
+  },
+  "android": {
+    "projectExists": true,
+    "distribution": "Google Play",
+    "status": "En desarrollo / preparación de distribución",
+    "publicUrl": null
+  },
+  "facebookInstantGames": {
+    "supported": true,
+    "appId": "28056922780642646",
+    "status": "Acceso público pendiente de confirmar",
+    "publicUrl": null
+  }
+}
