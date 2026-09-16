@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -20,6 +21,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
@@ -32,7 +34,7 @@ import androidx.compose.ui.unit.sp
 import com.neuronova.crucilux.model.CrosswordCell
 import com.neuronova.crucilux.model.CrosswordGrid
 import com.neuronova.crucilux.model.CruciluxDirection
-import com.neuronova.crucilux.ui.theme.SuccessGreen
+import com.neuronova.crucilux.ui.theme.CruciluxThemeColors
 
 /**
  * Componente interactivo de cuadrícula para Crucilux.
@@ -49,6 +51,7 @@ import com.neuronova.crucilux.ui.theme.SuccessGreen
 @Composable
 fun CrosswordBoardView(
     grid: CrosswordGrid,
+    modifier: Modifier = Modifier,
     selectedRow: Int = -1,
     selectedCol: Int = -1,
     activeDirection: CruciluxDirection = CruciluxDirection.HORIZONTAL,
@@ -58,14 +61,18 @@ fun CrosswordBoardView(
     hintRevealedCells: Set<Pair<Int, Int>> = emptySet(),
     incorrectCells: Set<Pair<Int, Int>> = emptySet(),
     onCellTapped: (row: Int, col: Int) -> Unit = { _, _ -> },
-    modifier: Modifier = Modifier,
 ) {
     BoxWithConstraints(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxSize(),
         contentAlignment = Alignment.Center,
     ) {
         val availableWidth = maxWidth
-        val cellSize: Dp = (availableWidth / grid.cols).coerceAtMost(48.dp)
+        val heightLimitedSize = if (maxHeight.value.isFinite()) {
+            maxHeight / grid.rows
+        } else {
+            48.dp
+        }
+        val cellSize: Dp = minOf(availableWidth / grid.cols, heightLimitedSize).coerceAtMost(48.dp)
         val boardWidth: Dp = cellSize * grid.cols
         val boardHeight: Dp = cellSize * grid.rows
 
@@ -153,7 +160,7 @@ private fun CrosswordCellView(
                     width = 0.5.dp,
                     color = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f),
                 )
-                .semantics { contentDescription = "Celda inactiva" },
+                .clearAndSetSemantics { },
         )
         return
     }
@@ -168,8 +175,8 @@ private fun CrosswordCellView(
         isIncorrect -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.65f)
         isHintRevealed && isSelected -> MaterialTheme.colorScheme.tertiaryContainer
         isHintRevealed -> MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.65f)
-        isValidated && isSelected -> SuccessGreen.copy(alpha = 0.35f)
-        isValidated -> SuccessGreen.copy(alpha = 0.22f)
+        isValidated && isSelected -> CruciluxThemeColors.success.copy(alpha = 0.35f)
+        isValidated -> CruciluxThemeColors.success.copy(alpha = 0.22f)
         isSelected -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.85f)
         isInActiveWord -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
         else -> MaterialTheme.colorScheme.surface
@@ -179,7 +186,7 @@ private fun CrosswordCellView(
         isIncorrect -> MaterialTheme.colorScheme.error
         isHintRevealed -> MaterialTheme.colorScheme.tertiary
         isSelected -> MaterialTheme.colorScheme.primary
-        isValidated -> SuccessGreen.copy(alpha = 0.75f)
+        isValidated -> CruciluxThemeColors.success.copy(alpha = 0.75f)
         isInActiveWord -> MaterialTheme.colorScheme.primary.copy(alpha = 0.55f)
         else -> MaterialTheme.colorScheme.outline.copy(alpha = 0.7f)
     }

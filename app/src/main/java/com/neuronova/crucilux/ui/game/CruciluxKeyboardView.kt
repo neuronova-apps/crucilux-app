@@ -129,7 +129,7 @@ private fun KeyButton(
 ) {
     Box(
         modifier = modifier
-            .height(44.dp)
+            .height(48.dp)
             .clip(RoundedCornerShape(8.dp))
             .background(MaterialTheme.colorScheme.surface)
             .clickable(
@@ -161,7 +161,7 @@ private fun DeleteButton(
 ) {
     Box(
         modifier = modifier
-            .height(44.dp)
+            .height(48.dp)
             .clip(RoundedCornerShape(8.dp))
             .background(MaterialTheme.colorScheme.surfaceContainerHigh)
             .clickable(

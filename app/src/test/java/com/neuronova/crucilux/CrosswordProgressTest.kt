@@ -292,6 +292,33 @@ class CrosswordProgressTest {
     }
 
     @Test
+    fun `08b autoguardado tardio no borra letras de un tablero completado`() = runBlocking {
+        val board = bankRepository.getAllBoards().first()
+        val grid = CruciluxGridEngine.buildGrid(board)
+        val completedLetters = grid.cells.flatten()
+            .filter { it.isActive }
+            .associate { cell -> Pair(cell.row, cell.col) to requireNotNull(cell.solutionLetter) }
+
+        progressRepository.saveProgress(
+            boardId = board.id,
+            category = board.category,
+            userLetters = completedLetters,
+            grid = grid,
+            isCompletedOverride = true,
+        )
+        progressRepository.saveProgress(
+            boardId = board.id,
+            category = board.category,
+            userLetters = completedLetters.entries.take(1).associate { it.key to it.value },
+            grid = grid,
+        )
+
+        val restored = progressRepository.getProgress(board.id)
+        assertEquals(CrosswordBoardStatus.COMPLETED, restored.status)
+        assertEquals(completedLetters, restored.userLetters)
+    }
+
+    @Test
     fun `09 30 tableros por categoria exactamente para las 10 categorias`() {
         val categories = bankRepository.getCategories()
         assertEquals(10, categories.size)

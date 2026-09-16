@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -22,6 +23,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
 import androidx.compose.material.icons.filled.Category
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -42,8 +44,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.neuronova.crucilux.data.GameConfigProvider
+import com.neuronova.crucilux.data.bank.BankLoadStatus
+import com.neuronova.crucilux.data.bank.CruciluxBankRepository
 import com.neuronova.crucilux.data.repository.CrosswordProgressRepository
-import com.neuronova.crucilux.ui.theme.SuccessGreen
+import com.neuronova.crucilux.ui.theme.CruciluxThemeColors
 
 /** Selección directa de las 10 categorías en una cuadrícula fija de 2 × 5. */
 @Composable
@@ -52,7 +56,9 @@ fun PlayScreen(
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
+    val bankRepository = remember { CruciluxBankRepository.getInstance() }
     val progressRepository = remember { CrosswordProgressRepository.getInstance(context) }
+    val bankStatus by bankRepository.loadStatus.collectAsState()
 
     Column(
         modifier = modifier
@@ -76,23 +82,58 @@ fun PlayScreen(
             )
         }
 
-        LazyVerticalGrid(
-            columns = GridCells.Fixed(2),
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            items(GameConfigProvider.categories, key = { it.displayName }) { item ->
-                val stats by progressRepository.observeCategoryStats(item.displayName)
-                    .collectAsState(initial = null)
-                CategoryGridCard(
-                    title = item.displayName,
-                    icon = item.icon ?: Icons.Default.Category,
-                    completed = stats?.completedBoards ?: 0,
-                    percent = stats?.completedPercent ?: 0,
-                    onClick = { onNavigateToCategoryBoards(item.displayName) },
-                )
+        when (bankStatus) {
+            BankLoadStatus.LOADED -> {
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(2),
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    items(GameConfigProvider.categories, key = { it.displayName }) { item ->
+                        val stats by progressRepository.observeCategoryStats(item.displayName)
+                            .collectAsState(initial = null)
+                        val totalBoards = stats?.totalBoards
+                            ?: bankRepository.getBoardsByCategory(item.displayName).size
+                        CategoryGridCard(
+                            title = item.displayName,
+                            icon = item.icon ?: Icons.Default.Category,
+                            completed = stats?.completedBoards ?: 0,
+                            totalBoards = totalBoards,
+                            percent = stats?.completedPercent ?: 0,
+                            onClick = { onNavigateToCategoryBoards(item.displayName) },
+                        )
+                    }
+                }
+            }
+            BankLoadStatus.ERROR -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(24.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = "No se pudo cargar el banco de crucigramas. Reinicia la aplicación.",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+            }
+            BankLoadStatus.NOT_LOADED,
+            BankLoadStatus.LOADING,
+            -> {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.semantics {
+                            contentDescription = "Cargando banco de crucigramas"
+                        },
+                    )
+                }
             }
         }
     }
@@ -103,6 +144,7 @@ private fun CategoryGridCard(
     title: String,
     icon: ImageVector,
     completed: Int,
+    totalBoards: Int,
     percent: Int,
     onClick: () -> Unit,
 ) {
@@ -110,11 +152,11 @@ private fun CategoryGridCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .height(126.dp)
+            .heightIn(min = 126.dp)
             .clip(RoundedCornerShape(15.dp))
             .clickable(role = Role.Button, onClick = onClick)
             .semantics {
-                contentDescription = "Categoría $title, $completed de 30 completados, $percent por ciento. Abrir tableros"
+                contentDescription = "Categoría $title, $completed de $totalBoards completados, $percent por ciento. Abrir tableros"
             },
         shape = RoundedCornerShape(15.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -137,7 +179,7 @@ private fun CategoryGridCard(
                         .size(34.dp)
                         .clip(RoundedCornerShape(10.dp))
                         .background(
-                            if (complete) SuccessGreen.copy(alpha = 0.16f)
+                            if (complete) CruciluxThemeColors.success.copy(alpha = 0.16f)
                             else MaterialTheme.colorScheme.primaryContainer,
                         ),
                     contentAlignment = Alignment.Center,
@@ -145,7 +187,7 @@ private fun CategoryGridCard(
                     Icon(
                         imageVector = icon,
                         contentDescription = null,
-                        tint = if (complete) SuccessGreen else MaterialTheme.colorScheme.primary,
+                        tint = if (complete) CruciluxThemeColors.success else MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(19.dp),
                     )
                 }
@@ -172,7 +214,7 @@ private fun CategoryGridCard(
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
                     Text(
-                        text = "$completed / 30",
+                        text = "$completed / $totalBoards",
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -181,7 +223,7 @@ private fun CategoryGridCard(
                         text = "$percent %",
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.Bold,
-                        color = if (complete) SuccessGreen else MaterialTheme.colorScheme.primary,
+                        color = if (complete) CruciluxThemeColors.success else MaterialTheme.colorScheme.primary,
                     )
                 }
                 LinearProgressIndicator(
@@ -190,7 +232,7 @@ private fun CategoryGridCard(
                         .fillMaxWidth()
                         .height(4.dp)
                         .clip(RoundedCornerShape(2.dp)),
-                    color = if (complete) SuccessGreen else MaterialTheme.colorScheme.primary,
+                    color = if (complete) CruciluxThemeColors.success else MaterialTheme.colorScheme.primary,
                     trackColor = MaterialTheme.colorScheme.surfaceVariant,
                 )
             }

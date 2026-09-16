@@ -7,6 +7,11 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.ReadOnlyComposable
+import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 
 // 1. Día Normal
@@ -121,6 +126,38 @@ private val DarkHighContrastColorScheme = darkColorScheme(
     outlineVariant       = DarkHCNightOutlineVariant,
 )
 
+@Immutable
+data class CruciluxSemanticColors(
+    val success: Color,
+    val progress: Color,
+    val streak: Color,
+)
+
+private val LocalCruciluxSemanticColors = staticCompositionLocalOf {
+    CruciluxSemanticColors(
+        success = SuccessGreen,
+        progress = ProgressBlue,
+        streak = StreakOrange,
+    )
+}
+
+object CruciluxThemeColors {
+    val success: Color
+        @Composable
+        @ReadOnlyComposable
+        get() = LocalCruciluxSemanticColors.current.success
+
+    val progress: Color
+        @Composable
+        @ReadOnlyComposable
+        get() = LocalCruciluxSemanticColors.current.progress
+
+    val streak: Color
+        @Composable
+        @ReadOnlyComposable
+        get() = LocalCruciluxSemanticColors.current.streak
+}
+
 /**
  * Tema principal de Crucilux con soporte completo para:
  * - Día Normal
@@ -148,9 +185,34 @@ fun CruciluxTheme(
         else                       -> LightColorScheme
     }
 
-    MaterialTheme(
-        colorScheme = colorScheme,
-        typography  = CruciluxTypography,
-        content     = content
-    )
+    val semanticColors = when {
+        darkTheme && highContrast -> CruciluxSemanticColors(
+            success = DarkHCNightSecondary,
+            progress = DarkHCNightPrimary,
+            streak = DarkStreakOrange,
+        )
+        darkTheme -> CruciluxSemanticColors(
+            success = DarkSuccessGreen,
+            progress = DarkProgressBlue,
+            streak = DarkStreakOrange,
+        )
+        highContrast -> CruciluxSemanticColors(
+            success = LightHCDaySecondary,
+            progress = LightHCDayPrimary,
+            streak = StreakOrange,
+        )
+        else -> CruciluxSemanticColors(
+            success = SuccessGreen,
+            progress = ProgressBlue,
+            streak = StreakOrange,
+        )
+    }
+
+    CompositionLocalProvider(LocalCruciluxSemanticColors provides semanticColors) {
+        MaterialTheme(
+            colorScheme = colorScheme,
+            typography  = CruciluxTypography,
+            content     = content,
+        )
+    }
 }

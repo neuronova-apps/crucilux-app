@@ -1,6 +1,7 @@
 ﻿package com.neuronova.crucilux.data.repository
 
 import android.content.Context
+import android.util.Log
 import androidx.room.withTransaction
 import com.neuronova.crucilux.data.GameSessionManager
 import com.neuronova.crucilux.data.bank.CruciluxBankRepository
@@ -15,13 +16,12 @@ import com.neuronova.crucilux.model.CruciluxBoard
 import com.neuronova.crucilux.model.CruciluxDirection
 import com.neuronova.crucilux.ui.game.CheckMode
 import com.neuronova.crucilux.progression.PlayerProgress
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
@@ -164,12 +164,12 @@ class CrosswordProgressRepository(
      * Observa las estadísticas de una categoría específica (X / 30 completados).
      */
     fun observeCategoryStats(category: String): Flow<CategoryProgressStats> {
-        return dao.observeProgressByCategory(category).map { list ->
+        return combine(dao.observeProgressByCategory(category), bankRepository.loadStatus) { list, _ ->
             val completed = list.count { it.status == CrosswordBoardStatus.COMPLETED.name }
             val inProgress = list.count { it.status == CrosswordBoardStatus.IN_PROGRESS.name }
             CategoryProgressStats(
                 category = category,
-                totalBoards = 30,
+                totalBoards = bankRepository.getBoardsByCategory(category).size,
                 completedBoards = completed,
                 inProgressBoards = inProgress,
             )
@@ -180,12 +180,13 @@ class CrosswordProgressRepository(
      * Observa las estadísticas globales sobre los 300 tableros.
      */
     fun observeGlobalStats(): Flow<GlobalProgressStats> {
-        return dao.observeAllProgress().map { list ->
+        return combine(dao.observeAllProgress(), bankRepository.loadStatus) { list, _ ->
+            val totalBoards = bankRepository.getAllBoards().size
             val completed = list.count { it.status == CrosswordBoardStatus.COMPLETED.name }
             val inProgress = list.count { it.status == CrosswordBoardStatus.IN_PROGRESS.name }
-            val notStarted = (300 - completed - inProgress).coerceAtLeast(0)
+            val notStarted = (totalBoards - completed - inProgress).coerceAtLeast(0)
             GlobalProgressStats(
-                totalBoards = 300,
+                totalBoards = totalBoards,
                 completedBoards = completed,
                 inProgressBoards = inProgress,
                 notStartedBoards = notStarted,
@@ -262,12 +263,19 @@ class CrosswordProgressRepository(
         val finalStatus = if (alreadyCompleted) CrosswordBoardStatus.COMPLETED else status
         val finalPercent = if (alreadyCompleted) 100 else percent
 
+        val existingLetters = existing?.userLetters.orEmpty()
+        val serializedLetters = if (alreadyCompleted && existingLetters.isNotBlank()) {
+            existingLetters
+        } else {
+            GameSessionManager.serializeLetters(userLetters)
+        }
+
         val entity = CrosswordProgressEntity(
             boardId = boardId,
             category = category,
             status = finalStatus.name,
             progressPercent = finalPercent,
-            userLetters = GameSessionManager.serializeLetters(userLetters),
+            userLetters = serializedLetters,
             selectedRow = selectedRow,
             selectedCol = selectedCol,
             selectedDirection = if (selectedDirection == CruciluxDirection.VERTICAL) "V" else "H",
@@ -427,8 +435,8 @@ class CrosswordProgressRepository(
                         dao.insertOrUpdate(entity)
                     }
                 }
-            } catch (e: Exception) {
-                // Migración tolerante a fallos
+            } catch (exception: Exception) {
+                Log.w(TAG, "No se pudo migrar la sesión legacy", exception)
             }
         }
     }
@@ -456,6 +464,8 @@ class CrosswordProgressRepository(
     }
 
     companion object {
+        private const val TAG = "CrosswordProgressRepo"
+
         @Volatile
         private var instance: CrosswordProgressRepository? = null
 

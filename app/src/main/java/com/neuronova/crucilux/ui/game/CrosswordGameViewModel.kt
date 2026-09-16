@@ -1,5 +1,6 @@
 ﻿package com.neuronova.crucilux.ui.game
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -71,6 +72,7 @@ data class CrosswordGameState(
     val isCompleted: Boolean = false,
     val isReviewMode: Boolean = false,
     val completionResult: BoardCompletionResult? = null,
+    val saveErrorMessage: String? = null,
     val isSessionSaved: Boolean = false,
     val progressPercent: Int = 0,
     val nextBoardId: String? = null,
@@ -90,10 +92,11 @@ class CrosswordGameViewModel(
 
     private val _state = MutableStateFlow(CrosswordGameState())
     val state: StateFlow<CrosswordGameState> = _state.asStateFlow()
-    private var completionSubmitted = false
     private val saveMutex = Mutex()
 
     companion object {
+        private const val TAG = "CrosswordGameViewModel"
+
         /**
          * Factory que inyecta [CrosswordProgressRepository] y opcionalmente [GameSessionManager].
          */
@@ -122,10 +125,16 @@ class CrosswordGameViewModel(
         if (!current.isLoading && current.board?.id == boardId && current.grid != null) return
 
         viewModelScope.launch(Dispatchers.Default) {
-            completionSubmitted = false
             _state.value = CrosswordGameState(isLoading = true)
             try {
                 val repository = CruciluxBankRepository.getInstance()
+                if (!repository.awaitReady()) {
+                    _state.value = CrosswordGameState(
+                        isLoading = false,
+                        errorMessage = "No se pudo cargar el banco de crucigramas. Reinicia la aplicación.",
+                    )
+                    return@launch
+                }
                 val board = repository.getBoardById(boardId)
 
                 if (board == null) {
@@ -142,7 +151,8 @@ class CrosswordGameViewModel(
                 val savedProgress = if (progressRepository != null) {
                     try {
                         progressRepository.getProgress(boardId)
-                    } catch (e: Exception) {
+                    } catch (exception: Exception) {
+                        Log.w(TAG, "No se pudo restaurar el progreso Room de $boardId", exception)
                         null
                     }
                 } else null
@@ -151,7 +161,8 @@ class CrosswordGameViewModel(
                 val legacySession = if (savedProgress == null && sessionManager != null) {
                     try {
                         sessionManager.sessionFlow.firstOrNull()
-                    } catch (e: Exception) {
+                    } catch (exception: Exception) {
+                        Log.w(TAG, "No se pudo restaurar la sesión legacy de $boardId", exception)
                         null
                     }
                 } else null
@@ -260,7 +271,8 @@ class CrosswordGameViewModel(
                         xpPossible = XpCalculator.finalXp(board.entries.size, CheckMode.CLASSIC, 0),
                     )
                 }
-            } catch (e: Exception) {
+            } catch (exception: Exception) {
+                Log.e(TAG, "Error cargando tablero $boardId", exception)
                 _state.value = CrosswordGameState(
                     isLoading = false,
                     errorMessage = "Error al construir el tablero. Inténtalo de nuevo.",
@@ -571,8 +583,12 @@ class CrosswordGameViewModel(
         val board = _state.value.board ?: return
 
         viewModelScope.launch(Dispatchers.IO) {
-            progressRepository?.resetBoardProgress(board.id, board.category)
-            withContext(Dispatchers.Main) { onReset() }
+            try {
+                progressRepository?.resetBoardProgress(board.id, board.category)
+                withContext(Dispatchers.Main) { onReset() }
+            } catch (exception: Exception) {
+                Log.e(TAG, "No se pudo reiniciar el tablero ${board.id}", exception)
+            }
         }
     }
 
@@ -586,8 +602,12 @@ class CrosswordGameViewModel(
 
     private fun findNextBoard(category: String, currentBoardId: String) {
         viewModelScope.launch(Dispatchers.IO) {
-            val next = progressRepository?.getNextUncompletedBoard(category, currentBoardId)
-            _state.value = _state.value.copy(nextBoardId = next?.id)
+            try {
+                val next = progressRepository?.getNextUncompletedBoard(category, currentBoardId)
+                _state.value = _state.value.copy(nextBoardId = next?.id)
+            } catch (exception: Exception) {
+                Log.w(TAG, "No se pudo calcular el siguiente tablero de $currentBoardId", exception)
+            }
         }
     }
 
@@ -727,8 +747,6 @@ class CrosswordGameViewModel(
     private fun triggerAutosave() {
         val st = _state.value
         val board = st.board ?: return
-        val shouldAwardCompletion = st.isCompleted && !st.isReviewMode && !completionSubmitted
-        if (shouldAwardCompletion) completionSubmitted = true
 
         viewModelScope.launch(Dispatchers.IO) {
             try {
@@ -736,6 +754,7 @@ class CrosswordGameViewModel(
                     val latest = _state.value
                     val latestBoard = latest.board ?: return@withLock
                     if (latestBoard.id != board.id) return@withLock
+                    val shouldAwardCompletion = latest.isCompleted && !latest.isReviewMode
 
                     val completionResult = progressRepository?.saveProgress(
                         boardId = latestBoard.id,
@@ -757,6 +776,7 @@ class CrosswordGameViewModel(
                         _state.value = _state.value.copy(
                             completionResult = completionResult,
                             bestXpEarned = completionResult.bestXpEarned,
+                            saveErrorMessage = null,
                         )
                     }
 
@@ -775,9 +795,14 @@ class CrosswordGameViewModel(
                         )
                     )
                 }
-            } catch (e: Exception) {
-                if (shouldAwardCompletion) completionSubmitted = false
-                // Autoguardado silencioso
+            } catch (exception: Exception) {
+                Log.e(TAG, "No se pudo autoguardar el tablero ${board.id}", exception)
+                val latest = _state.value
+                if (latest.isCompleted && !latest.isReviewMode) {
+                    _state.value = latest.copy(
+                        saveErrorMessage = "No se pudo guardar la finalización. Reinténtalo para conservar tu XP.",
+                    )
+                }
             }
         }
     }

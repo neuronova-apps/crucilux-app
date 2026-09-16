@@ -1,6 +1,7 @@
 package com.neuronova.crucilux.ui.screens
 
 import android.content.Context
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -334,8 +335,8 @@ private fun AboutLinkButton(
 private fun tryOpenUri(uriHandler: androidx.compose.ui.platform.UriHandler, url: String) {
     try {
         uriHandler.openUri(url)
-    } catch (_: Exception) {
-        // Manejo silencioso si no hay navegador disponible
+    } catch (exception: Exception) {
+        Log.w("AboutScreen", "No se pudo abrir el enlace externo: $url", exception)
     }
 }
 
@@ -343,7 +344,8 @@ private fun getAppVersionName(context: Context): String {
     return try {
         val pInfo = context.packageManager.getPackageInfo(context.packageName, 0)
         pInfo.versionName ?: "1.0"
-    } catch (_: Exception) {
+    } catch (exception: Exception) {
+        Log.w("AboutScreen", "No se pudo leer la versión instalada", exception)
         "1.0"
     }
 }

@@ -34,7 +34,9 @@ data class UserPreferences(
  * 3. Alto contraste.
  * 4. Habilitación de temas de temporada.
  */
-class UserPreferencesManager(private val context: Context) {
+class UserPreferencesManager(context: Context) {
+
+    private val preferencesDataStore: DataStore<Preferences> = context.applicationContext.dataStore
 
     companion object {
         private val KEY_USER_NAME = stringPreferencesKey("user_name")
@@ -53,7 +55,7 @@ class UserPreferencesManager(private val context: Context) {
         }
     }
 
-    val userPreferencesFlow: Flow<UserPreferences> = context.dataStore.data
+    val userPreferencesFlow: Flow<UserPreferences> = preferencesDataStore.data
         .catch { exception ->
             if (exception is IOException) {
                 emit(emptyPreferences())
@@ -77,7 +79,7 @@ class UserPreferencesManager(private val context: Context) {
      */
     suspend fun setUserName(name: String) {
         val normalized = name.trim().replace(Regex("\\s+"), " ")
-        context.dataStore.edit { preferences ->
+        preferencesDataStore.edit { preferences ->
             preferences[KEY_USER_NAME] = normalized
         }
     }
@@ -86,7 +88,7 @@ class UserPreferencesManager(private val context: Context) {
      * Elimina el nombre guardado.
      */
     suspend fun clearUserName() {
-        context.dataStore.edit { preferences ->
+        preferencesDataStore.edit { preferences ->
             preferences.remove(KEY_USER_NAME)
         }
     }
@@ -95,7 +97,7 @@ class UserPreferencesManager(private val context: Context) {
      * Guarda la preferencia de tema (día = false, noche = true).
      */
     suspend fun setDarkMode(isDark: Boolean) {
-        context.dataStore.edit { preferences ->
+        preferencesDataStore.edit { preferences ->
             preferences[KEY_IS_DARK_MODE] = isDark
         }
     }
@@ -104,7 +106,7 @@ class UserPreferencesManager(private val context: Context) {
      * Guarda la preferencia de alto contraste.
      */
     suspend fun setHighContrast(enabled: Boolean) {
-        context.dataStore.edit { preferences ->
+        preferencesDataStore.edit { preferences ->
             preferences[KEY_IS_HIGH_CONTRAST] = enabled
         }
     }
@@ -113,7 +115,7 @@ class UserPreferencesManager(private val context: Context) {
      * Guarda la preferencia de temas de temporada.
      */
     suspend fun setSeasonalThemesEnabled(enabled: Boolean) {
-        context.dataStore.edit { preferences ->
+        preferencesDataStore.edit { preferences ->
             preferences[KEY_SEASONAL_THEMES_ENABLED] = enabled
         }
     }
@@ -122,7 +124,7 @@ class UserPreferencesManager(private val context: Context) {
      * Guarda el modo de comprobación de respuestas predeterminado ("CLASSIC" o "ASSISTED").
      */
     suspend fun setDefaultCheckMode(mode: String) {
-        context.dataStore.edit { preferences ->
+        preferencesDataStore.edit { preferences ->
             preferences[KEY_DEFAULT_CHECK_MODE] = mode
         }
     }

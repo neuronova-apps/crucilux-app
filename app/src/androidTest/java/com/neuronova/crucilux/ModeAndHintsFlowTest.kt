@@ -2,6 +2,7 @@ package com.neuronova.crucilux
 
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -28,8 +29,14 @@ class ModeAndHintsFlowTest {
 
         composeRule.onNodeWithText("Comenzar").performClick()
         composeRule.onNodeWithContentDescription("Jugar, navegación principal").performClick()
+        composeRule.waitUntil(timeoutMillis = 10_000) {
+            composeRule.onAllNodesWithText("Cultura general")
+                .fetchSemanticsNodes().isNotEmpty()
+        }
         composeRule.onNodeWithText("Cultura general").performClick()
+        composeRule.waitForIdle()
         composeRule.onNodeWithText("01").performClick()
+        composeRule.waitForIdle()
 
         composeRule.onNodeWithText("¿Cómo quieres jugar?").assertIsDisplayed()
         composeRule.onNodeWithText("CLÁSICA").performClick()
@@ -52,5 +59,13 @@ class ModeAndHintsFlowTest {
         composeRule.onNodeWithText("Pista").performClick()
         composeRule.onNodeWithText("Usar pista").performClick()
         composeRule.onNodeWithText("XP posibles: 50").assertIsDisplayed()
+
+        // La ruta de juego debe sobrevivir también a la destrucción y recreación
+        // de la actividad, no solo al teardown normal del runner.
+        composeRule.waitForIdle()
+        composeRule.activityRule.scenario.recreate()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithContentDescription("Modo de partida bloqueado: Clásica")
+            .assertIsDisplayed()
     }
 }

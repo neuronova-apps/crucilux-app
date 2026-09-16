@@ -51,7 +51,9 @@ data class GameSessionState(
  * Gestor de persistencia local para partidas en curso mediante Preferences DataStore.
  * Almacena el progreso sin guardar nunca las respuestas del banco maestro.
  */
-class GameSessionManager private constructor(private val context: Context) {
+class GameSessionManager private constructor(context: Context) {
+
+    private val dataStore: DataStore<Preferences> = context.applicationContext.gameSessionDataStore
 
     companion object {
         private val KEY_BOARD_ID = stringPreferencesKey("session_board_id")
@@ -109,7 +111,7 @@ class GameSessionManager private constructor(private val context: Context) {
     /**
      * Flujo reactivo con el estado de la sesión guardada.
      */
-    val sessionFlow: Flow<GameSessionState> = context.gameSessionDataStore.data
+    val sessionFlow: Flow<GameSessionState> = dataStore.data
         .catch { exception ->
             if (exception is IOException) {
                 emit(emptyPreferences())
@@ -152,7 +154,7 @@ class GameSessionManager private constructor(private val context: Context) {
      * Guarda el estado completo de la partida en curso.
      */
     suspend fun saveSession(state: GameSessionState) {
-        context.gameSessionDataStore.edit { prefs ->
+        dataStore.edit { prefs ->
             prefs[KEY_BOARD_ID] = state.boardId
             prefs[KEY_CATEGORY] = state.category
             prefs[KEY_BOARD_SIZE] = state.boardSize
@@ -170,7 +172,7 @@ class GameSessionManager private constructor(private val context: Context) {
      * Elimina completamente la sesión guardada.
      */
     suspend fun clearSession() {
-        context.gameSessionDataStore.edit { prefs ->
+        dataStore.edit { prefs ->
             prefs.clear()
         }
     }
@@ -179,7 +181,7 @@ class GameSessionManager private constructor(private val context: Context) {
      * Marca la sesión actual como terminada.
      */
     suspend fun markFinished() {
-        context.gameSessionDataStore.edit { prefs ->
+        dataStore.edit { prefs ->
             prefs[KEY_IS_FINISHED] = true
             prefs[KEY_LAST_UPDATED_MS] = System.currentTimeMillis().toString()
         }

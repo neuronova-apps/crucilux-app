@@ -8,7 +8,7 @@ object NeuroNovaLinks {
     /**
      * Sitio oficial de Crucilux.
      */
-    const val CRUCILUX_OFFICIAL_URL = "https://neuronova-apps.github.io/crucilux"
+    const val CRUCILUX_OFFICIAL_URL = "https://neuronova-apps.github.io/crucilux-app/"
 
     /**
      * Página matriz de NeuroNova Apps.
@@ -18,5 +18,5 @@ object NeuroNovaLinks {
     /**
      * Política de privacidad oficial correspondiente a Crucilux.
      */
-    const val PRIVACY_POLICY_URL = "https://neuronova-apps.github.io/privacy"
+    const val PRIVACY_POLICY_URL = "https://neuronova-apps.github.io/crucilux-app/privacy/"
 }

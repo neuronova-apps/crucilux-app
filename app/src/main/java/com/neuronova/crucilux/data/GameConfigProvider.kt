@@ -49,10 +49,17 @@ object GameConfigProvider {
     val categories: List<CruciluxCategory>
         get() {
             val repo = bankRepository ?: CruciluxBankRepository.getInstance()
-            if (repo.isReady() && repo.getAllBoards().isNotEmpty()) {
-                return officialCategories
+            if (!repo.isReady()) return emptyList()
+
+            return repo.getCategories().map { categoryName ->
+                officialCategories.firstOrNull {
+                    it.displayName.equals(categoryName, ignoreCase = true)
+                } ?: CruciluxCategory(
+                    id = categoryName.lowercase().replace(' ', '_'),
+                    displayName = categoryName,
+                    icon = getIconForCategory(categoryName),
+                )
             }
-            return officialCategories
         }
 
     val defaultCategory: CruciluxCategory

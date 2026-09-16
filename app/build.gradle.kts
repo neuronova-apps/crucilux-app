@@ -60,7 +60,7 @@ dependencies {
     ksp(libs.androidx.room.compiler)
 
     testImplementation(libs.junit)
-    testImplementation("org.json:json:20240303")
+    testImplementation(libs.json)
     androidTestImplementation(platform(libs.androidx.compose.bom))
 
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)

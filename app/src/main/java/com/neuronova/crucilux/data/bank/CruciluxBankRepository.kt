@@ -10,6 +10,18 @@ import org.json.JSONObject
 import java.io.BufferedReader
 import java.io.InputStream
 import java.io.InputStreamReader
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.filter
+
+enum class BankLoadStatus {
+    NOT_LOADED,
+    LOADING,
+    LOADED,
+    ERROR,
+}
 
 /**
  * Repositorio local para la lectura y consulta del banco maestro validado de Crucilux (v1.37).
@@ -31,14 +43,27 @@ class CruciluxBankRepository private constructor() {
     @Volatile
     private var isLoaded: Boolean = false
 
+    private val _loadStatus = MutableStateFlow(BankLoadStatus.NOT_LOADED)
+    val loadStatus: StateFlow<BankLoadStatus> = _loadStatus.asStateFlow()
+
+    @Volatile
+    private var loadErrorMessage: String? = null
+
     /**
      * Carga el banco JSON desde los assets de la aplicación.
      */
     @Synchronized
     fun loadFromAssets(context: Context) {
         if (isLoaded) return
-        context.assets.open(ASSET_FILE_NAME).use { inputStream ->
-            loadFromStream(inputStream)
+        _loadStatus.value = BankLoadStatus.LOADING
+        loadErrorMessage = null
+        try {
+            context.assets.open(ASSET_FILE_NAME).use { inputStream ->
+                loadFromStream(inputStream)
+            }
+        } catch (exception: Exception) {
+            markInitialLoadFailed(exception)
+            throw exception
         }
     }
 
@@ -57,39 +82,48 @@ class CruciluxBankRepository private constructor() {
      */
     @Synchronized
     fun loadFromJsonString(jsonString: String) {
+        val wasLoaded = isLoaded
+        if (!wasLoaded) {
+            _loadStatus.value = BankLoadStatus.LOADING
+            loadErrorMessage = null
+        }
+
+        try {
+            parseAndPublish(jsonString)
+        } catch (exception: Exception) {
+            if (!wasLoaded) markInitialLoadFailed(exception)
+            throw exception
+        }
+    }
+
+    private fun parseAndPublish(jsonString: String) {
         val root = JSONObject(jsonString)
 
-        val schemaVersion = root.optInt("schemaVersion", 2)
-        val bankVersion = root.optString("bankVersion", "1.37")
-        val app = root.optString("app", "Crucilux")
-        val coordinateBase = root.optInt("coordinateBase", 0)
-        val totalBoards = root.optInt("totalBoards", 300)
-        val totalEntries = root.optInt("totalEntries", 2000)
+        val schemaVersion = root.getInt("schemaVersion")
+        val bankVersion = root.getString("bankVersion")
+        val app = root.getString("app")
+        val coordinateBase = root.getInt("coordinateBase")
+        val totalBoards = root.getInt("totalBoards")
+        val totalEntries = root.getInt("totalEntries")
+
+        require(schemaVersion == 2) { "schemaVersion no compatible: $schemaVersion" }
+        require(bankVersion == "1.37") { "bankVersion no compatible: $bankVersion" }
+        require(app == "Crucilux") { "Banco destinado a otra aplicación: $app" }
+        require(coordinateBase == 0) { "coordinateBase no compatible: $coordinateBase" }
 
         // Parsear lista de categorías
         val categoriesList = mutableListOf<String>()
-        val categoriesArray = root.optJSONArray("categories")
-        if (categoriesArray != null) {
-            for (i in 0 until categoriesArray.length()) {
-                categoriesList.add(categoriesArray.getString(i))
-            }
+        val categoriesArray = root.getJSONArray("categories")
+        for (i in 0 until categoriesArray.length()) {
+            categoriesList.add(categoriesArray.getString(i))
         }
-
-        this.metadata = CruciluxBankMetadata(
-            schemaVersion = schemaVersion,
-            bankVersion = bankVersion,
-            app = app,
-            coordinateBase = coordinateBase,
-            totalBoards = totalBoards,
-            totalEntries = totalEntries,
-            categories = categoriesList,
-        )
+        require(categoriesList.isNotEmpty()) { "El banco no declara categorías" }
+        require(categoriesList.distinct().size == categoriesList.size) { "El banco declara categorías duplicadas" }
 
         // Parsear lista de tableros
         val parsedBoards = mutableListOf<CruciluxBoard>()
-        val boardsArray = root.optJSONArray("boards")
-        if (boardsArray != null) {
-            for (i in 0 until boardsArray.length()) {
+        val boardsArray = root.getJSONArray("boards")
+        for (i in 0 until boardsArray.length()) {
                 val bObj = boardsArray.getJSONObject(i)
                 val id = bObj.getString("id")
                 val rows = bObj.getInt("rows")
@@ -97,16 +131,30 @@ class CruciluxBankRepository private constructor() {
                 val category = bObj.getString("category")
                 val subcategory = bObj.optString("subcategory", "No aplica")
 
+                require(id.isNotBlank()) { "Tablero en índice $i sin ID" }
+                require(rows > 0 && cols > 0) { "Tablero $id con dimensiones inválidas ${rows}x${cols}" }
+                require(category in categoriesList) { "Tablero $id usa categoría no declarada: $category" }
+
                 val entriesList = mutableListOf<CruciluxEntry>()
-                val entriesArray = bObj.optJSONArray("entries")
-                if (entriesArray != null) {
-                    for (j in 0 until entriesArray.length()) {
+                val entriesArray = bObj.getJSONArray("entries")
+                for (j in 0 until entriesArray.length()) {
                         val eObj = entriesArray.getJSONObject(j)
                         val directionStr = eObj.getString("direction")
                         val answerStr = eObj.getString("answer")
                         val displayAnswerStr = eObj.optString("displayAnswer", answerStr)
-                        val answerTypeStr = eObj.optString("answerType", "SINGLE")
-                        val wordCountInt = eObj.optInt("wordCount", 1)
+                        val answerTypeStr = eObj.getString("answerType")
+                        val wordCountInt = eObj.getInt("wordCount")
+
+                        val direction = CruciluxDirection.entries.firstOrNull {
+                            it.value.equals(directionStr, ignoreCase = true)
+                        } ?: throw IllegalArgumentException(
+                            "Tablero $id: dirección inválida '$directionStr' en entrada $j"
+                        )
+                        val answerType = CruciluxAnswerType.entries.firstOrNull {
+                            it.value.equals(answerTypeStr, ignoreCase = true)
+                        } ?: throw IllegalArgumentException(
+                            "Tablero $id: answerType inválido '$answerTypeStr' en entrada $j"
+                        )
 
                         val wordLengthsList = mutableListOf<Int>()
                         val wordLengthsArray = eObj.optJSONArray("wordLengths")
@@ -120,10 +168,10 @@ class CruciluxBankRepository private constructor() {
 
                         val entry = CruciluxEntry(
                             number = eObj.getInt("number"),
-                            direction = CruciluxDirection.fromValue(directionStr),
+                            direction = direction,
                             answer = answerStr,
                             displayAnswer = displayAnswerStr,
-                            answerType = CruciluxAnswerType.fromValue(answerTypeStr),
+                            answerType = answerType,
                             wordCount = wordCountInt,
                             wordLengths = wordLengthsList,
                             length = eObj.getInt("length"),
@@ -133,8 +181,8 @@ class CruciluxBankRepository private constructor() {
                             clue = eObj.getString("clue"),
                         )
                         entriesList.add(entry)
-                    }
                 }
+                require(entriesList.isNotEmpty()) { "Tablero $id sin entradas" }
 
                 parsedBoards.add(
                     CruciluxBoard(
@@ -146,13 +194,36 @@ class CruciluxBankRepository private constructor() {
                         entries = entriesList,
                     )
                 )
-            }
         }
 
+        require(parsedBoards.size == totalBoards) {
+            "totalBoards=$totalBoards, pero se encontraron ${parsedBoards.size}"
+        }
+        require(parsedBoards.map { it.id.lowercase() }.distinct().size == parsedBoards.size) {
+            "El banco contiene IDs de tablero duplicados"
+        }
+        val parsedEntryCount = parsedBoards.sumOf { it.entries.size }
+        require(parsedEntryCount == totalEntries) {
+            "totalEntries=$totalEntries, pero se encontraron $parsedEntryCount"
+        }
+
+        val parsedMetadata = CruciluxBankMetadata(
+            schemaVersion = schemaVersion,
+            bankVersion = bankVersion,
+            app = app,
+            coordinateBase = coordinateBase,
+            totalBoards = totalBoards,
+            totalEntries = totalEntries,
+            categories = categoriesList.toList(),
+        )
+
+        this.metadata = parsedMetadata
         this.boards = parsedBoards
         this.boardsById = parsedBoards.associateBy { it.id }
         this.boardsByCategory = parsedBoards.groupBy { it.category.trim().lowercase() }
         this.isLoaded = true
+        this.loadErrorMessage = null
+        this._loadStatus.value = BankLoadStatus.LOADED
     }
 
     /**
@@ -192,7 +263,7 @@ class CruciluxBankRepository private constructor() {
      * Retorna el primer tablero disponible para la categoría.
      */
     fun obtenerCrucigrama(category: String): CruciluxBoard? {
-        return getBoardsByCategory(category).firstOrNull() ?: boards.firstOrNull()
+        return getBoardsByCategory(category).firstOrNull()
     }
 
     /**
@@ -206,6 +277,22 @@ class CruciluxBankRepository private constructor() {
      * Indica si el repositorio ya ha cargado los datos en memoria.
      */
     fun isReady(): Boolean = isLoaded
+
+    fun getLoadErrorMessage(): String? = loadErrorMessage
+
+    suspend fun awaitReady(): Boolean {
+        if (isLoaded) return true
+        val terminalStatus = loadStatus
+            .filter { it == BankLoadStatus.LOADED || it == BankLoadStatus.ERROR }
+            .first()
+        return terminalStatus == BankLoadStatus.LOADED
+    }
+
+    private fun markInitialLoadFailed(exception: Exception) {
+        if (isLoaded) return
+        loadErrorMessage = exception.message ?: exception.javaClass.simpleName
+        _loadStatus.value = BankLoadStatus.ERROR
+    }
 
     companion object {
         const val ASSET_FILE_NAME = "crucilux_bank_v1_37.json"

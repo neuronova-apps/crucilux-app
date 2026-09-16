@@ -3,6 +3,7 @@
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,6 +19,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -52,11 +54,13 @@ import com.neuronova.crucilux.data.db.CrosswordBoardStatus
 import com.neuronova.crucilux.data.repository.CrosswordBoardProgress
 import com.neuronova.crucilux.data.repository.CrosswordProgressRepository
 import com.neuronova.crucilux.model.CruciluxBoard
-import com.neuronova.crucilux.ui.theme.ProgressBlue
-import com.neuronova.crucilux.ui.theme.SuccessGreen
+import com.neuronova.crucilux.ui.theme.CruciluxThemeColors
 import com.neuronova.crucilux.ui.components.ModeSelectionDialog
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import com.neuronova.crucilux.progression.GameStartRules
+import java.util.Locale
 
 /**
  * Pantalla que muestra la colección de los 30 tableros de una categoría temática.
@@ -138,37 +142,59 @@ fun CategoryBoardsScreen(
         }
 
         // ── Grid de 30 Tableros ──────────────────────────────────────────────
-        LazyVerticalGrid(
-            columns = GridCells.Adaptive(minSize = 100.dp),
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-            modifier = Modifier.weight(1f),
-        ) {
-            itemsIndexed(filteredBoards) { _, board ->
-                val stableIndex = allCategoryBoards.indexOfFirst { it.id == board.id } + 1
-                val progress = progressMap[board.id] ?: CrosswordBoardProgress(
-                    boardId = board.id,
-                    category = board.category,
-                    status = CrosswordBoardStatus.NOT_STARTED,
-                    progressPercent = 0,
-                )
-
-                BoardCardItem(
-                    index = stableIndex,
-                    board = board,
-                    progress = progress,
-                    onClick = {
-                        coroutineScope.launch {
-                            val latest = progressRepository.getProgress(board.id)
-                            if (GameStartRules.shouldRequestMode(latest.status)) {
-                                pendingBoard = board
-                            } else {
-                                onSelectBoard(board.id)
-                            }
-                        }
+        if (filteredBoards.isEmpty()) {
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .padding(24.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = if (allCategoryBoards.isEmpty()) {
+                        "No hay tableros disponibles para esta categoría."
+                    } else {
+                        "No hay tableros que coincidan con este filtro."
                     },
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+            }
+        } else {
+            LazyVerticalGrid(
+                columns = GridCells.Adaptive(minSize = 100.dp),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier.weight(1f),
+            ) {
+                itemsIndexed(filteredBoards, key = { _, board -> board.id }) { _, board ->
+                    val stableIndex = allCategoryBoards.indexOfFirst { it.id == board.id } + 1
+                    val progress = progressMap[board.id] ?: CrosswordBoardProgress(
+                        boardId = board.id,
+                        category = board.category,
+                        status = CrosswordBoardStatus.NOT_STARTED,
+                        progressPercent = 0,
+                    )
+
+                    BoardCardItem(
+                        index = stableIndex,
+                        board = board,
+                        progress = progress,
+                        onClick = {
+                            coroutineScope.launch {
+                                val latest = progressRepository.getProgress(board.id)
+                                withContext(Dispatchers.Main.immediate) {
+                                    if (GameStartRules.shouldRequestMode(latest.status)) {
+                                        pendingBoard = board
+                                    } else {
+                                        onSelectBoard(board.id)
+                                    }
+                                }
+                            }
+                        },
+                    )
+                }
             }
         }
     }
@@ -178,8 +204,10 @@ fun CategoryBoardsScreen(
             onSelect = { mode ->
                 coroutineScope.launch {
                     progressRepository.startBoard(board.id, board.category, mode)
-                    pendingBoard = null
-                    onSelectBoard(board.id)
+                    withContext(Dispatchers.Main.immediate) {
+                        pendingBoard = null
+                        onSelectBoard(board.id)
+                    }
                 }
             },
             onDismiss = { pendingBoard = null },
@@ -236,7 +264,7 @@ private fun CategoryHeader(
                         text = "$completedCount / $totalCount completados ($percent %)",
                         style = MaterialTheme.typography.bodySmall,
                         fontWeight = FontWeight.Medium,
-                        color = if (percent == 100) SuccessGreen else MaterialTheme.colorScheme.primary,
+                        color = if (percent == 100) CruciluxThemeColors.success else MaterialTheme.colorScheme.primary,
                     )
                 }
 
@@ -244,14 +272,14 @@ private fun CategoryHeader(
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(8.dp))
-                            .background(ProgressBlue.copy(alpha = 0.15f))
+                            .background(CruciluxThemeColors.progress.copy(alpha = 0.15f))
                             .padding(horizontal = 8.dp, vertical = 4.dp),
                     ) {
                         Text(
                             text = "$inProgressCount en progreso",
                             fontSize = 11.sp,
                             fontWeight = FontWeight.SemiBold,
-                            color = ProgressBlue,
+                            color = CruciluxThemeColors.progress,
                         )
                     }
                 }
@@ -266,7 +294,7 @@ private fun CategoryHeader(
                     .fillMaxWidth()
                     .height(6.dp)
                     .clip(RoundedCornerShape(3.dp)),
-                color = if (percent == 100) SuccessGreen else MaterialTheme.colorScheme.primary,
+                color = if (percent == 100) CruciluxThemeColors.success else MaterialTheme.colorScheme.primary,
                 trackColor = MaterialTheme.colorScheme.surfaceVariant,
             )
         }
@@ -286,6 +314,7 @@ private fun BibleFilterBar(
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .horizontalScroll(rememberScrollState())
             .padding(horizontal = 16.dp, vertical = 6.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
@@ -319,17 +348,17 @@ private fun BoardCardItem(
     progress: CrosswordBoardProgress,
     onClick: () -> Unit,
 ) {
-    val formattedIndex = String.format("%02d", index)
+    val formattedIndex = String.format(Locale.ROOT, "%02d", index)
     val status = progress.status
 
     val (cardBg, borderColor) = when (status) {
         CrosswordBoardStatus.COMPLETED -> Pair(
-            SuccessGreen.copy(alpha = 0.12f),
-            SuccessGreen.copy(alpha = 0.6f),
+            CruciluxThemeColors.success.copy(alpha = 0.12f),
+            CruciluxThemeColors.success.copy(alpha = 0.6f),
         )
         CrosswordBoardStatus.IN_PROGRESS -> Pair(
-            ProgressBlue.copy(alpha = 0.08f),
-            ProgressBlue.copy(alpha = 0.5f),
+            CruciluxThemeColors.progress.copy(alpha = 0.08f),
+            CruciluxThemeColors.progress.copy(alpha = 0.5f),
         )
         CrosswordBoardStatus.NOT_STARTED -> Pair(
             MaterialTheme.colorScheme.surface,
@@ -367,7 +396,7 @@ private fun BoardCardItem(
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.ExtraBold,
                 color = when (status) {
-                    CrosswordBoardStatus.COMPLETED -> SuccessGreen
+                    CrosswordBoardStatus.COMPLETED -> CruciluxThemeColors.success
                     CrosswordBoardStatus.IN_PROGRESS -> MaterialTheme.colorScheme.primary
                     CrosswordBoardStatus.NOT_STARTED -> MaterialTheme.colorScheme.onSurface
                 },
@@ -380,7 +409,7 @@ private fun BoardCardItem(
                         text = "✓",
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Black,
-                        color = SuccessGreen,
+                        color = CruciluxThemeColors.success,
                     )
                 }
                 CrosswordBoardStatus.IN_PROGRESS -> {
@@ -388,7 +417,7 @@ private fun BoardCardItem(
                         text = "${progress.progressPercent} %",
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
-                        color = ProgressBlue,
+                        color = CruciluxThemeColors.progress,
                     )
                 }
                 CrosswordBoardStatus.NOT_STARTED -> {

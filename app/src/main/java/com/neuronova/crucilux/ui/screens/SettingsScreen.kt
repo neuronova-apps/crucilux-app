@@ -21,7 +21,6 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
 import androidx.compose.material.icons.filled.Brightness4
 import androidx.compose.material.icons.filled.Brightness7
-import androidx.compose.material.icons.filled.Celebration
 import androidx.compose.material.icons.filled.Contrast
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Info
@@ -165,7 +164,7 @@ fun SettingsScreen(
                         },
                         modifier = Modifier
                             .weight(1f)
-                            .height(44.dp),
+                            .height(48.dp),
                         shape = RoundedCornerShape(10.dp),
                     ) {
                         Icon(
@@ -186,7 +185,7 @@ fun SettingsScreen(
                                     saveFeedback = "Nombre eliminado"
                                 }
                             },
-                            modifier = Modifier.height(44.dp),
+                            modifier = Modifier.height(48.dp),
                             shape = RoundedCornerShape(10.dp),
                         ) {
                             Icon(
@@ -253,42 +252,7 @@ fun SettingsScreen(
                 }
             }
 
-            // ── 4. Sección Temas de temporada ───────────────────────────────
-            SettingsCard(
-                icon = Icons.Default.Celebration,
-                title = "Temas de temporada",
-                subtitle = "Permite cambios visuales especiales en determinadas fechas.",
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = if (userPreferences.seasonalThemesEnabled) "Activado" else "Desactivado",
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                    Switch(
-                        checked = userPreferences.seasonalThemesEnabled,
-                        onCheckedChange = { enabled ->
-                            coroutineScope.launch {
-                                preferencesManager.setSeasonalThemesEnabled(enabled)
-                            }
-                        },
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = MaterialTheme.colorScheme.primary,
-                            checkedTrackColor = MaterialTheme.colorScheme.primaryContainer,
-                        ),
-                        modifier = Modifier.semantics {
-                            contentDescription = "Interruptor de temas de temporada, actualmente ${if (userPreferences.seasonalThemesEnabled) "activado" else "desactivado"}"
-                        },
-                    )
-                }
-            }
-
-            // ── 5. Sección Acerca de Crucilux ───────────────────────────────
+            // ── 4. Sección Acerca de Crucilux ───────────────────────────────
             Card(
                 modifier = Modifier
                     .fillMaxWidth()

@@ -22,7 +22,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircleOutline
 import androidx.compose.material.icons.filled.EmojiEvents
-import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.PieChart
 import androidx.compose.material3.Card
@@ -51,9 +50,7 @@ import androidx.compose.ui.unit.sp
 import com.neuronova.crucilux.data.GameConfigProvider
 import com.neuronova.crucilux.data.repository.CrosswordProgressRepository
 import com.neuronova.crucilux.data.repository.GlobalProgressStats
-import com.neuronova.crucilux.ui.theme.ProgressBlue
-import com.neuronova.crucilux.ui.theme.StreakOrange
-import com.neuronova.crucilux.ui.theme.SuccessGreen
+import com.neuronova.crucilux.ui.theme.CruciluxThemeColors
 import com.neuronova.crucilux.progression.PlayerProgress
 import com.neuronova.crucilux.ui.components.PlayerLevelCard
 
@@ -78,20 +75,6 @@ private val medalsList = listOf(
         name = "Vocabulario de Oro",
         condition = "Encuentra 50 palabras correctas",
         initialLetter = "V",
-        isUnlocked = false,
-    ),
-    MedalItem(
-        id = "fast_mind",
-        name = "Mente Ágil",
-        condition = "Completa una partida en tiempo récord",
-        initialLetter = "M",
-        isUnlocked = false,
-    ),
-    MedalItem(
-        id = "streak_7",
-        name = "Constancia",
-        condition = "Mantén una racha de 7 días seguidos",
-        initialLetter = "C",
         isUnlocked = false,
     ),
     MedalItem(
@@ -138,7 +121,7 @@ fun ProgressScreen() {
             )
             Spacer(Modifier.height(2.dp))
             Text(
-                text  = "Tu recorrido en Crucilux (300 tableros)",
+                text  = "Tu recorrido en Crucilux (${globalStats.totalBoards} tableros)",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -164,16 +147,16 @@ fun ProgressScreen() {
             ProgressSummaryCard(
                 modifier    = Modifier.weight(1f),
                 icon        = Icons.Default.CheckCircleOutline,
-                iconTint    = SuccessGreen,
+                iconTint    = CruciluxThemeColors.success,
                 containerBg = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f),
                 value       = "${globalStats.completedBoards}",
                 label       = "Completados",
-                contentDesc = "Crucigramas completados: ${globalStats.completedBoards} de 300",
+                contentDesc = "Crucigramas completados: ${globalStats.completedBoards} de ${globalStats.totalBoards}",
             )
             ProgressSummaryCard(
                 modifier    = Modifier.weight(1f),
                 icon        = Icons.Default.PieChart,
-                iconTint    = ProgressBlue,
+                iconTint    = CruciluxThemeColors.progress,
                 containerBg = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.35f),
                 value       = "${globalStats.globalPercent} %",
                 label       = "Progreso global",
@@ -210,6 +193,7 @@ fun ProgressScreen() {
                     val stats by progressRepository.observeCategoryStats(cat.displayName)
                         .collectAsState(initial = null)
                     val completed = stats?.completedBoards ?: 0
+                    val totalBoards = stats?.totalBoards ?: 0
                     val percent = stats?.completedPercent ?: 0
 
                     Column(modifier = Modifier.padding(vertical = 4.dp)) {
@@ -225,10 +209,10 @@ fun ProgressScreen() {
                                 color = MaterialTheme.colorScheme.onSurface,
                             )
                             Text(
-                                text = "$completed / 30 ($percent %)",
+                                text = "$completed / $totalBoards ($percent %)",
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Bold,
-                                color = if (percent == 100) SuccessGreen else MaterialTheme.colorScheme.primary,
+                                color = if (percent == 100) CruciluxThemeColors.success else MaterialTheme.colorScheme.primary,
                             )
                         }
                         Spacer(Modifier.height(4.dp))
@@ -238,7 +222,7 @@ fun ProgressScreen() {
                                 .fillMaxWidth()
                                 .height(4.dp)
                                 .clip(RoundedCornerShape(2.dp)),
-                            color = if (percent == 100) SuccessGreen else MaterialTheme.colorScheme.primary,
+                            color = if (percent == 100) CruciluxThemeColors.success else MaterialTheme.colorScheme.primary,
                             trackColor = MaterialTheme.colorScheme.surfaceVariant,
                         )
                     }
@@ -304,14 +288,14 @@ private fun MedalsSection(
                         modifier           = Modifier.size(20.dp),
                     )
                     Text(
-                        text       = "Medallas y Logros",
+                        text       = "Medallas (próximamente)",
                         style      = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color      = MaterialTheme.colorScheme.onSurface,
                     )
                 }
                 Text(
-                    text       = "0 de ${medals.size}",
+                    text       = "En preparación",
                     style      = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.SemiBold,
                     color      = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -344,7 +328,7 @@ private fun MedalCard(
         modifier = modifier
             .defaultMinSize(minHeight = 84.dp)
             .semantics {
-                contentDescription = "Medalla ${medal.name}, condición: ${medal.condition}, estado: Bloqueado"
+                contentDescription = "Medalla ${medal.name}, condición futura: ${medal.condition}, próximamente disponible"
             },
         shape = RoundedCornerShape(14.dp),
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
@@ -398,7 +382,7 @@ private fun MedalCard(
                             modifier           = Modifier.size(11.dp),
                         )
                         Text(
-                            text       = if (medal.isUnlocked) "Desbloqueado" else "Bloqueado",
+                            text       = if (medal.isUnlocked) "Desbloqueado" else "Próximamente",
                             style      = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.SemiBold,
                             color      = if (medal.isUnlocked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,

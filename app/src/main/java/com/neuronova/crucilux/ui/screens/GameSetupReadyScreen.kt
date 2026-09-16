@@ -51,7 +51,7 @@ import androidx.compose.ui.unit.sp
 import com.neuronova.crucilux.data.GameSessionManager
 import com.neuronova.crucilux.data.GameSessionState
 import com.neuronova.crucilux.data.bank.CruciluxBankRepository
-import com.neuronova.crucilux.ui.theme.SuccessGreen
+import com.neuronova.crucilux.ui.theme.CruciluxThemeColors
 import kotlinx.coroutines.launch
 
 /**
@@ -62,10 +62,10 @@ import kotlinx.coroutines.launch
 @Composable
 fun GameSetupReadyScreen(
     category: String,
-    size: String? = null,
     onVolver: () -> Unit,
-    onIniciar: (boardId: String) -> Unit = {},
     modifier: Modifier = Modifier,
+    size: String? = null,
+    onIniciar: (boardId: String) -> Unit = {},
 ) {
     val context = LocalContext.current
     val sessionManager = remember { GameSessionManager.getInstance(context) }
@@ -99,7 +99,7 @@ fun GameSetupReadyScreen(
             Icon(
                 imageVector = Icons.Default.CheckCircle,
                 contentDescription = null,
-                tint = SuccessGreen,
+                tint = CruciluxThemeColors.success,
                 modifier = Modifier.size(38.dp),
             )
         }

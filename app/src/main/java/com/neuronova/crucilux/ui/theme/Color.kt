@@ -10,7 +10,7 @@ val LightOnPrimary            = Color(0xFFFFFFFF)
 val LightPrimaryContainer     = Color(0xFFE3F2FD)
 val LightOnPrimaryContainer   = Color(0xFF0D47A1)
 
-val LightSecondary            = Color(0xFF0288D1)
+val LightSecondary            = Color(0xFF0277BD)
 val LightOnSecondary          = Color(0xFFFFFFFF)
 val LightSecondaryContainer   = Color(0xFFE1F5FE)
 val LightOnSecondaryContainer = Color(0xFF01579B)
@@ -115,6 +115,9 @@ val DarkHCNightOutline              = Color(0xFFFFFFFF) // Borde blanco definido
 val DarkHCNightOutlineVariant       = Color(0xFFBDBDBD)
 
 // Acentos semánticos
-val StreakOrange              = Color(0xFFF57C00)
+val StreakOrange              = Color(0xFFA54300)
 val SuccessGreen              = Color(0xFF2E7D32)
 val ProgressBlue              = Color(0xFF1976D2)
+val DarkStreakOrange          = Color(0xFFFFB74D)
+val DarkSuccessGreen          = Color(0xFF81C784)
+val DarkProgressBlue          = Color(0xFF64B5F6)

@@ -56,9 +56,11 @@ import com.neuronova.crucilux.data.repository.CrosswordProgressRepository
 import com.neuronova.crucilux.data.db.CrosswordBoardStatus
 import com.neuronova.crucilux.model.CrosswordClue
 import com.neuronova.crucilux.model.CruciluxDirection
-import com.neuronova.crucilux.ui.theme.SuccessGreen
+import com.neuronova.crucilux.ui.theme.CruciluxThemeColors
 import com.neuronova.crucilux.ui.components.ModeSelectionDialog
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import com.neuronova.crucilux.progression.HintRules
 
 /**
@@ -74,8 +76,8 @@ import com.neuronova.crucilux.progression.HintRules
 fun CrosswordGameScreen(
     boardId: String,
     onVolver: () -> Unit,
-    onNavigateToNextBoard: (nextBoardId: String) -> Unit = {},
     modifier: Modifier = Modifier,
+    onNavigateToNextBoard: (nextBoardId: String) -> Unit = {},
 ) {
     val context = LocalContext.current
     val progressRepository = remember { CrosswordProgressRepository.getInstance(context) }
@@ -183,7 +185,7 @@ fun CrosswordGameScreen(
                         hintRevealedCells = state.hintRevealedCells,
                         incorrectCells = state.incorrectCells,
                         onCellTapped = { r, c -> viewModel.onCellTapped(r, c) },
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxSize(),
                     )
                 }
 
@@ -211,13 +213,17 @@ fun CrosswordGameScreen(
             nextBoardId = state.nextBoardId,
             completionResult = state.completionResult,
             bestXpEarned = state.bestXpEarned,
+            isReviewMode = state.isReviewMode,
+            saveErrorMessage = state.saveErrorMessage,
             onNextBoard = { nextId ->
                 coroutineScope.launch {
                     val progress = progressRepository.getProgress(nextId)
-                    if (progress.status == CrosswordBoardStatus.NOT_STARTED) {
-                        pendingNextBoardId = nextId
-                    } else {
-                        onNavigateToNextBoard(nextId)
+                    withContext(Dispatchers.Main.immediate) {
+                        if (progress.status == CrosswordBoardStatus.NOT_STARTED) {
+                            pendingNextBoardId = nextId
+                        } else {
+                            onNavigateToNextBoard(nextId)
+                        }
                     }
                 }
             },
@@ -227,6 +233,7 @@ fun CrosswordGameScreen(
             },
             onVolver = onVolver,
             onRequestReset = { showResetDialog = true },
+            onRetrySave = { viewModel.saveSessionNow() },
         )
     }
 
@@ -272,8 +279,10 @@ fun CrosswordGameScreen(
                         .getInstance().getBoardById(nextId)
                     if (nextBoard != null) {
                         progressRepository.startBoard(nextId, nextBoard.category, mode)
-                        pendingNextBoardId = null
-                        onNavigateToNextBoard(nextId)
+                        withContext(Dispatchers.Main.immediate) {
+                            pendingNextBoardId = null
+                            onNavigateToNextBoard(nextId)
+                        }
                     }
                 }
             },
@@ -391,7 +400,7 @@ private fun ActiveClueNavigationCard(
             .padding(horizontal = 8.dp, vertical = 2.dp),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (isValidated) SuccessGreen.copy(alpha = 0.12f)
+            containerColor = if (isValidated) CruciluxThemeColors.success.copy(alpha = 0.12f)
             else MaterialTheme.colorScheme.surfaceContainerLow,
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
@@ -431,21 +440,21 @@ private fun ActiveClueNavigationCard(
                             text = "${activeClue.number} $dirName",
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.Bold,
-                            color = if (isValidated) SuccessGreen else MaterialTheme.colorScheme.onSurface,
+                            color = if (isValidated) CruciluxThemeColors.success else MaterialTheme.colorScheme.onSurface,
                         )
 
                         if (isValidated) {
                             Box(
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(4.dp))
-                                    .background(SuccessGreen.copy(alpha = 0.2f))
+                                    .background(CruciluxThemeColors.success.copy(alpha = 0.2f))
                                     .padding(horizontal = 6.dp, vertical = 2.dp),
                             ) {
                                 Text(
                                     text = "✓ Resuelta",
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = SuccessGreen,
+                                    color = CruciluxThemeColors.success,
                                 )
                             }
                         }
@@ -490,7 +499,7 @@ private fun ActiveClueNavigationCard(
                     text = activeClue.formatLengthInfo(),
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.SemiBold,
-                    color = if (isValidated) SuccessGreen else MaterialTheme.colorScheme.primary,
+                    color = if (isValidated) CruciluxThemeColors.success else MaterialTheme.colorScheme.primary,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.padding(top = 1.dp, bottom = 2.dp),
                 )
@@ -508,12 +517,16 @@ private fun CompletionDialog(
     nextBoardId: String?,
     completionResult: com.neuronova.crucilux.data.repository.BoardCompletionResult?,
     bestXpEarned: Int,
+    isReviewMode: Boolean,
+    saveErrorMessage: String?,
     onNextBoard: (nextBoardId: String) -> Unit,
     onViewBoards: () -> Unit,
     onVolver: () -> Unit,
     onRequestReset: () -> Unit,
+    onRetrySave: () -> Unit,
 ) {
     val isCategoryFinished = nextBoardId == null
+    val actionsEnabled = isReviewMode || completionResult != null
 
     AlertDialog(
         onDismissRequest = { /* Modal permanente */ },
@@ -521,7 +534,7 @@ private fun CompletionDialog(
             Icon(
                 imageVector = if (isCategoryFinished) Icons.Default.EmojiEvents else Icons.Default.CheckCircle,
                 contentDescription = null,
-                tint = SuccessGreen,
+                tint = CruciluxThemeColors.success,
                 modifier = Modifier.size(48.dp),
             )
         },
@@ -552,7 +565,7 @@ private fun CompletionDialog(
                     text = "$totalEntries de $totalEntries palabras resueltas (100%)",
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.Bold,
-                    color = SuccessGreen,
+                    color = CruciluxThemeColors.success,
                     textAlign = TextAlign.Center,
                 )
                 if (completionResult != null) {
@@ -572,11 +585,30 @@ private fun CompletionDialog(
                         textAlign = TextAlign.Center,
                     )
                 } else {
-                    Text(
-                        text = "Mejor XP del tablero: $bestXpEarned",
-                        style = MaterialTheme.typography.bodySmall,
-                        fontWeight = FontWeight.SemiBold,
-                    )
+                    if (saveErrorMessage != null) {
+                        Text(
+                            text = saveErrorMessage,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                            textAlign = TextAlign.Center,
+                        )
+                    } else if (!isReviewMode) {
+                        CircularProgressIndicator(
+                            modifier = Modifier
+                                .size(24.dp)
+                                .semantics { contentDescription = "Guardando finalización y XP" },
+                        )
+                        Text(
+                            text = "Guardando progreso…",
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    } else {
+                        Text(
+                            text = "Mejor XP del tablero: $bestXpEarned",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    }
                 }
             }
         },
@@ -586,7 +618,7 @@ private fun CompletionDialog(
                 verticalArrangement = Arrangement.spacedBy(6.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                if (nextBoardId != null) {
+                if (actionsEnabled && nextBoardId != null) {
                     Button(
                         onClick = { onNextBoard(nextBoardId) },
                         modifier = Modifier.fillMaxWidth(),
@@ -598,29 +630,40 @@ private fun CompletionDialog(
                     }
                 }
 
-                Button(
-                    onClick = onViewBoards,
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = if (nextBoardId != null) MaterialTheme.colorScheme.secondaryContainer
-                        else MaterialTheme.colorScheme.primary,
-                        contentColor = if (nextBoardId != null) MaterialTheme.colorScheme.onSecondaryContainer
-                        else MaterialTheme.colorScheme.onPrimary,
-                    ),
-                ) {
-                    Text("Ver tableros")
-                }
+                if (actionsEnabled) {
+                    Button(
+                        onClick = onViewBoards,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (nextBoardId != null) MaterialTheme.colorScheme.secondaryContainer
+                            else MaterialTheme.colorScheme.primary,
+                            contentColor = if (nextBoardId != null) MaterialTheme.colorScheme.onSecondaryContainer
+                            else MaterialTheme.colorScheme.onPrimary,
+                        ),
+                    ) {
+                        Text("Ver tableros")
+                    }
 
-                TextButton(onClick = onRequestReset) {
-                    Text("Reiniciar tablero")
+                    TextButton(onClick = onRequestReset) {
+                        Text("Reiniciar tablero")
+                    }
+                } else if (saveErrorMessage != null) {
+                    Button(
+                        onClick = onRetrySave,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text("Reintentar guardado")
+                    }
                 }
             }
         },
         dismissButton = {
-            TextButton(
-                onClick = onVolver,
-            ) {
-                Text("Volver")
+            if (actionsEnabled) {
+                TextButton(
+                    onClick = onVolver,
+                ) {
+                    Text("Volver")
+                }
             }
         },
     )

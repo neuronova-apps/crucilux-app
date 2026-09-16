@@ -24,7 +24,6 @@ import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.CheckCircleOutline
 import androidx.compose.material.icons.filled.EmojiEvents
-import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.PieChart
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Settings
@@ -60,9 +59,7 @@ import com.neuronova.crucilux.data.db.CrosswordBoardStatus
 import com.neuronova.crucilux.data.db.CrosswordProgressEntity
 import com.neuronova.crucilux.data.repository.CrosswordProgressRepository
 import com.neuronova.crucilux.data.repository.GlobalProgressStats
-import com.neuronova.crucilux.ui.theme.ProgressBlue
-import com.neuronova.crucilux.ui.theme.StreakOrange
-import com.neuronova.crucilux.ui.theme.SuccessGreen
+import com.neuronova.crucilux.ui.theme.CruciluxThemeColors
 import com.neuronova.crucilux.progression.PlayerProgress
 import com.neuronova.crucilux.ui.components.PlayerLevelCard
 
@@ -118,6 +115,7 @@ fun HomeScreen(
         // Tarjeta compacta "Mi actividad"
         StatsCard(
             completedCount = globalStats.completedBoards,
+            totalCount = globalStats.totalBoards,
             progressPercent = globalStats.globalPercent,
             modifier = Modifier
                 .fillMaxWidth()
@@ -271,7 +269,7 @@ private fun HomeHeader(
         FilledTonalButton(
             onClick        = onOpenSettings,
             modifier       = Modifier
-                .defaultMinSize(minWidth = 44.dp, minHeight = 40.dp)
+                .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
                 .semantics { contentDescription = "Abrir configuración y opciones de apariencia" },
             shape          = RoundedCornerShape(12.dp),
             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
@@ -349,6 +347,7 @@ private fun CrosswordBrandVisual(modifier: Modifier = Modifier) {
 @Composable
 private fun StatsCard(
     completedCount: Int,
+    totalCount: Int,
     progressPercent: Int,
     modifier: Modifier = Modifier,
 ) {
@@ -377,24 +376,16 @@ private fun StatsCard(
                 verticalAlignment     = Alignment.CenterVertically,
             ) {
                 StatItem(
-                    icon        = Icons.Default.LocalFireDepartment,
-                    iconTint    = StreakOrange,
-                    value       = "0",
-                    label       = "Racha",
-                    contentDesc = "Racha actual: 0 días",
-                )
-                StatDivider()
-                StatItem(
                     icon        = Icons.Default.CheckCircleOutline,
-                    iconTint    = SuccessGreen,
+                    iconTint    = CruciluxThemeColors.success,
                     value       = "$completedCount",
                     label       = "Completados",
-                    contentDesc = "Crucigramas completados: $completedCount de 300",
+                    contentDesc = "Crucigramas completados: $completedCount de $totalCount",
                 )
                 StatDivider()
                 StatItem(
                     icon        = Icons.Default.PieChart,
-                    iconTint    = ProgressBlue,
+                    iconTint    = CruciluxThemeColors.progress,
                     value       = "$progressPercent %",
                     label       = "Progreso",
                     contentDesc = "Progreso general: $progressPercent por ciento",

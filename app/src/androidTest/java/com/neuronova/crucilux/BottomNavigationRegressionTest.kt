@@ -58,7 +58,7 @@ class BottomNavigationRegressionTest {
     private fun openProgress() {
         composeRule.onNodeWithContentDescription("Progreso, navegación principal").performClick()
         composeRule.waitForIdle()
-        composeRule.onNodeWithText("Progreso").assertIsDisplayed()
+        composeRule.onNodeWithText("Tu recorrido en Crucilux", substring = true).assertIsDisplayed()
         composeRule.onNodeWithContentDescription("Progreso, navegación principal").assertIsSelected()
     }
 
