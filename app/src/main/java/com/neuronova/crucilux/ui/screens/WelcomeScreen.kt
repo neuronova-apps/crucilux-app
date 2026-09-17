@@ -1,7 +1,11 @@
 package com.neuronova.crucilux.ui.screens
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
+import com.neuronova.crucilux.R
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -62,7 +66,12 @@ fun WelcomeScreen(
             verticalArrangement = Arrangement.Center,
         ) {
             // Emblema visual de Crucilux
-            WelcomeBrandEmblem()
+            Image(
+                painter = painterResource(R.drawable.crucilux_intro_icon),
+                contentDescription = "Logotipo de Crucilux",
+                modifier = Modifier.size(108.dp),
+                contentScale = ContentScale.Fit,
+            )
 
             Spacer(Modifier.height(28.dp))
 
@@ -145,69 +154,6 @@ fun WelcomeScreen(
     }
 }
 
-/**
- * Emblema visual representativo de Crucilux (matriz 3×3 con monograma crucigrama).
- */
-@Composable
-private fun WelcomeBrandEmblem() {
-    val grid = listOf(
-        listOf("C", "R", "U"),
-        listOf(" ", "X", " "),
-        listOf("L", "U", "X"),
-    )
-
-    Box(
-        modifier = Modifier
-            .size(108.dp)
-            .clip(RoundedCornerShape(26.dp))
-            .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f))
-            .border(
-                width = 1.5.dp,
-                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f),
-                shape = RoundedCornerShape(26.dp),
-            ),
-        contentAlignment = Alignment.Center,
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(3.dp),
-        ) {
-            grid.forEach { row ->
-                Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
-                    row.forEach { letter ->
-                        val active = letter.isNotBlank()
-                        Box(
-                            modifier = Modifier
-                                .size(24.dp)
-                                .clip(RoundedCornerShape(5.dp))
-                                .background(
-                                    if (active) MaterialTheme.colorScheme.surface
-                                    else Color.Transparent,
-                                )
-                                .then(
-                                    if (active) Modifier.border(
-                                        width = 1.dp,
-                                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f),
-                                        shape = RoundedCornerShape(5.dp),
-                                    ) else Modifier
-                                ),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            if (active) {
-                                Text(
-                                    text = letter,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.ExtraBold,
-                                    color = MaterialTheme.colorScheme.primary,
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
 
 /**
  * Insignia de características para la portada.

@@ -1,7 +1,11 @@
-﻿package com.neuronova.crucilux.ui.screens
+package com.neuronova.crucilux.ui.screens
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
+import com.neuronova.crucilux.R
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -43,7 +47,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -216,27 +219,12 @@ private fun HomeHeader(
             .padding(start = 20.dp, end = 20.dp, top = 18.dp, bottom = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(
-            modifier = Modifier
-                .size(44.dp)
-                .clip(RoundedCornerShape(14.dp))
-                .background(
-                    Brush.linearGradient(
-                        colors = listOf(
-                            MaterialTheme.colorScheme.primary,
-                            MaterialTheme.colorScheme.secondary,
-                        )
-                    )
-                ),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(
-                text       = "C",
-                color      = MaterialTheme.colorScheme.onPrimary,
-                fontSize   = 22.sp,
-                fontWeight = FontWeight.Black,
-            )
-        }
+        Image(
+            painter = painterResource(R.drawable.crucilux_intro_icon),
+            contentDescription = "Crucilux",
+            modifier = Modifier.size(44.dp),
+            contentScale = ContentScale.Fit,
+        )
 
         Spacer(Modifier.width(12.dp))
 
