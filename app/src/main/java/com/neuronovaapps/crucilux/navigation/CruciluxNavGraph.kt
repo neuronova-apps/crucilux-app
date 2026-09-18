@@ -12,6 +12,7 @@ import com.neuronovaapps.crucilux.data.UserPreferences
 import com.neuronovaapps.crucilux.data.UserPreferencesManager
 import com.neuronovaapps.crucilux.ui.game.CrosswordGameScreen
 import com.neuronovaapps.crucilux.ui.screens.AboutScreen
+import com.neuronovaapps.crucilux.ui.screens.AchievementsScreen
 import com.neuronovaapps.crucilux.ui.screens.CategoryBoardsScreen
 import com.neuronovaapps.crucilux.ui.screens.GameSetupReadyScreen
 import com.neuronovaapps.crucilux.ui.screens.HomeScreen
@@ -31,6 +32,7 @@ sealed class Screen(val route: String) {
         }
     }
     object Progress       : Screen("progress")
+    object Achievements   : Screen("achievements")
     object Settings       : Screen("settings")
     object About          : Screen("about")
     object GameSetupReady : Screen("game_setup_ready/{category}") {
@@ -87,6 +89,11 @@ fun CruciluxNavGraph(
                         launchSingleTop = true
                     }
                 },
+                onOpenAchievements = {
+                    navController.navigate(Screen.Achievements.route) {
+                        launchSingleTop = true
+                    }
+                },
                 onOpenSettings = {
                     navController.navigate(Screen.Settings.route)
                 },
@@ -123,7 +130,20 @@ fun CruciluxNavGraph(
             )
         }
         composable(Screen.Progress.route) {
-            ProgressScreen()
+            ProgressScreen(
+                onOpenAchievements = {
+                    navController.navigate(Screen.Achievements.route) {
+                        launchSingleTop = true
+                    }
+                },
+            )
+        }
+        composable(Screen.Achievements.route) {
+            AchievementsScreen(
+                onVolver = {
+                    navController.popBackStack()
+                },
+            )
         }
         composable(Screen.Settings.route) {
             SettingsScreen(
