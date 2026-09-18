@@ -1,0 +1,187 @@
+package com.neuronovaapps.crucilux.navigation
+
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.navigation.NavHostController
+import androidx.navigation.NavType
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.navArgument
+import com.neuronovaapps.crucilux.data.GameConfigProvider
+import com.neuronovaapps.crucilux.data.UserPreferences
+import com.neuronovaapps.crucilux.data.UserPreferencesManager
+import com.neuronovaapps.crucilux.ui.game.CrosswordGameScreen
+import com.neuronovaapps.crucilux.ui.screens.AboutScreen
+import com.neuronovaapps.crucilux.ui.screens.CategoryBoardsScreen
+import com.neuronovaapps.crucilux.ui.screens.GameSetupReadyScreen
+import com.neuronovaapps.crucilux.ui.screens.HomeScreen
+import com.neuronovaapps.crucilux.ui.screens.PlayScreen
+import com.neuronovaapps.crucilux.ui.screens.ProgressScreen
+import com.neuronovaapps.crucilux.ui.screens.SettingsScreen
+import com.neuronovaapps.crucilux.ui.screens.WelcomeScreen
+
+/** Destinos de navegación de Crucilux. */
+sealed class Screen(val route: String) {
+    object Welcome        : Screen("welcome")
+    object Home           : Screen("home")
+    object Play           : Screen("play")
+    object CategoryBoards : Screen("category/{category}/boards") {
+        fun createRoute(category: String): String {
+            return "category/$category/boards"
+        }
+    }
+    object Progress       : Screen("progress")
+    object Settings       : Screen("settings")
+    object About          : Screen("about")
+    object GameSetupReady : Screen("game_setup_ready/{category}") {
+        fun createRoute(category: String): String {
+            return "game_setup_ready/$category"
+        }
+    }
+    object Game : Screen("game/{boardId}") {
+        fun createRoute(boardId: String): String {
+            return "game/$boardId"
+        }
+    }
+}
+
+/** Rutas que muestran la barra de navegación inferior. */
+val bottomBarRoutes = setOf(
+    Screen.Home.route,
+    Screen.Play.route,
+    Screen.Progress.route,
+)
+
+@Composable
+fun CruciluxNavGraph(
+    navController: NavHostController,
+    userPreferences: UserPreferences,
+    preferencesManager: UserPreferencesManager,
+    modifier: Modifier = Modifier,
+) {
+    NavHost(
+        navController    = navController,
+        startDestination = Screen.Welcome.route,
+        modifier         = modifier,
+    ) {
+        composable(Screen.Welcome.route) {
+            WelcomeScreen(
+                onComenzar = {
+                    navController.navigate(Screen.Home.route) {
+                        popUpTo(Screen.Welcome.route) { inclusive = true }
+                        launchSingleTop = true
+                    }
+                },
+            )
+        }
+        composable(Screen.Home.route) {
+            HomeScreen(
+                userName = userPreferences.userName,
+                onComenzar = {
+                    navController.navigate(Screen.Play.route) {
+                        launchSingleTop = true
+                    }
+                },
+                onContinuar = { boardId ->
+                    navController.navigate(Screen.Game.createRoute(boardId)) {
+                        launchSingleTop = true
+                    }
+                },
+                onOpenSettings = {
+                    navController.navigate(Screen.Settings.route)
+                },
+            )
+        }
+        composable(Screen.Play.route) {
+            PlayScreen(
+                onNavigateToCategoryBoards = { category ->
+                    navController.navigate(
+                        Screen.CategoryBoards.createRoute(category)
+                    ) {
+                        launchSingleTop = true
+                    }
+                },
+            )
+        }
+        composable(
+            route = Screen.CategoryBoards.route,
+            arguments = listOf(
+                navArgument("category") { type = NavType.StringType },
+            ),
+        ) { backStackEntry ->
+            val category = backStackEntry.arguments?.getString("category") ?: GameConfigProvider.defaultCategory.displayName
+            CategoryBoardsScreen(
+                category = category,
+                onSelectBoard = { boardId ->
+                    navController.navigate(Screen.Game.createRoute(boardId)) {
+                        launchSingleTop = true
+                    }
+                },
+                onVolver = {
+                    navController.popBackStack()
+                },
+            )
+        }
+        composable(Screen.Progress.route) {
+            ProgressScreen()
+        }
+        composable(Screen.Settings.route) {
+            SettingsScreen(
+                userPreferences = userPreferences,
+                preferencesManager = preferencesManager,
+                onNavigateToAbout = {
+                    navController.navigate(Screen.About.route)
+                },
+                onVolver = {
+                    navController.popBackStack()
+                },
+            )
+        }
+        composable(Screen.About.route) {
+            AboutScreen(
+                onVolver = {
+                    navController.popBackStack()
+                },
+            )
+        }
+        composable(
+            route = Screen.GameSetupReady.route,
+            arguments = listOf(
+                navArgument("category") { type = NavType.StringType },
+            ),
+        ) { backStackEntry ->
+            val category = backStackEntry.arguments?.getString("category") ?: GameConfigProvider.defaultCategory.displayName
+            GameSetupReadyScreen(
+                category = category,
+                onVolver = {
+                    navController.popBackStack()
+                },
+                onIniciar = { boardId ->
+                    navController.navigate(Screen.Game.createRoute(boardId)) {
+                        launchSingleTop = true
+                    }
+                },
+            )
+        }
+        composable(
+            route = Screen.Game.route,
+            arguments = listOf(
+                navArgument("boardId") { type = NavType.StringType },
+            ),
+        ) { backStackEntry ->
+            val boardId = backStackEntry.arguments?.getString("boardId") ?: ""
+            CrosswordGameScreen(
+                boardId = boardId,
+                onVolver = {
+                    navController.popBackStack()
+                },
+                onNavigateToNextBoard = { nextBoardId ->
+                    navController.navigate(Screen.Game.createRoute(nextBoardId)) {
+                        popUpTo(Screen.Game.route) { inclusive = true }
+                        launchSingleTop = true
+                    }
+                },
+            )
+        }
+    }
+}
