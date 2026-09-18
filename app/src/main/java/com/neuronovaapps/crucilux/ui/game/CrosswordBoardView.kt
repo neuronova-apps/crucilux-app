@@ -1,0 +1,309 @@
+package com.neuronovaapps.crucilux.ui.game
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.neuronovaapps.crucilux.model.CrosswordCell
+import com.neuronovaapps.crucilux.model.CrosswordGrid
+import com.neuronovaapps.crucilux.model.CruciluxDirection
+import com.neuronovaapps.crucilux.ui.theme.CruciluxThemeColors
+
+/**
+ * Componente interactivo de cuadrícula para Crucilux.
+ *
+ * Características:
+ * - Centrado y responsive para cualquier dimensión dinámica rows × cols.
+ * - Celdas activas seleccionables por toque.
+ * - Resaltado visual para celda activa, palabra activa y celdas validadas (verde).
+ * - Muestra las letras introducidas por el usuario (sin revelar soluciones del banco).
+ * - Bloqueo visual e indicación verde accesible para palabras correctas.
+ * - Número de pista en la esquina superior izquierda.
+ * - Accesibilidad TalkBack completa con descripción de estado validado.
+ */
+@Composable
+fun CrosswordBoardView(
+    grid: CrosswordGrid,
+    modifier: Modifier = Modifier,
+    selectedRow: Int = -1,
+    selectedCol: Int = -1,
+    activeDirection: CruciluxDirection = CruciluxDirection.HORIZONTAL,
+    activeCellsInWord: Set<Pair<Int, Int>> = emptySet(),
+    userLetters: Map<Pair<Int, Int>, Char> = emptyMap(),
+    validatedCells: Set<Pair<Int, Int>> = emptySet(),
+    hintRevealedCells: Set<Pair<Int, Int>> = emptySet(),
+    incorrectCells: Set<Pair<Int, Int>> = emptySet(),
+    onCellTapped: (row: Int, col: Int) -> Unit = { _, _ -> },
+) {
+    BoxWithConstraints(
+        modifier = modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center,
+    ) {
+        val availableWidth = maxWidth
+        val heightLimitedSize = if (maxHeight.value.isFinite()) {
+            maxHeight / grid.rows
+        } else {
+            48.dp
+        }
+        val cellSize: Dp = minOf(availableWidth / grid.cols, heightLimitedSize).coerceAtMost(48.dp)
+        val boardWidth: Dp = cellSize * grid.cols
+        val boardHeight: Dp = cellSize * grid.rows
+
+        val clueNumberSp = when {
+            cellSize < 24.dp -> 6.sp
+            cellSize < 32.dp -> 7.sp
+            cellSize < 42.dp -> 8.sp
+            else -> 9.sp
+        }
+
+        val letterSp = when {
+            cellSize < 24.dp -> 11.sp
+            cellSize < 32.dp -> 14.sp
+            cellSize < 42.dp -> 18.sp
+            else -> 22.sp
+        }
+
+        Column(
+            modifier = Modifier
+                .width(boardWidth)
+                .height(boardHeight)
+                .clipToBounds(),
+        ) {
+            for (row in 0 until grid.rows) {
+                Row(
+                    modifier = Modifier
+                        .width(boardWidth)
+                        .height(cellSize),
+                ) {
+                    for (col in 0 until grid.cols) {
+                        val cell = grid.cells[row][col]
+                        val isSelected = (row == selectedRow && col == selectedCol)
+                        val isInActiveWord = activeCellsInWord.contains(Pair(row, col))
+                        val isValidated = validatedCells.contains(Pair(row, col))
+                        val isIncorrect = incorrectCells.contains(Pair(row, col))
+                        val isHintRevealed = hintRevealedCells.contains(Pair(row, col))
+                        val letter = userLetters[Pair(row, col)]
+
+                        CrosswordCellView(
+                            cell = cell,
+                            cellSize = cellSize,
+                            clueNumberSp = clueNumberSp,
+                            letterSp = letterSp,
+                            isSelected = isSelected,
+                            isInActiveWord = isInActiveWord,
+                            isValidated = isValidated,
+                            isIncorrect = isIncorrect,
+                            isHintRevealed = isHintRevealed,
+                            userLetter = letter,
+                            activeDirection = activeDirection,
+                            onCellTapped = { onCellTapped(row, col) },
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Celda individual interactiva.
+ */
+@Composable
+private fun CrosswordCellView(
+    cell: CrosswordCell,
+    cellSize: Dp,
+    clueNumberSp: androidx.compose.ui.unit.TextUnit,
+    letterSp: androidx.compose.ui.unit.TextUnit,
+    isSelected: Boolean,
+    isInActiveWord: Boolean,
+    isValidated: Boolean,
+    isIncorrect: Boolean,
+    isHintRevealed: Boolean,
+    userLetter: Char?,
+    activeDirection: CruciluxDirection,
+    onCellTapped: () -> Unit,
+) {
+    val isHighContrast = com.neuronovaapps.crucilux.ui.theme.LocalCruciluxHighContrast.current
+    val boardColors = CruciluxThemeColors.board
+
+    if (!cell.isActive) {
+        // Celda inactiva (bloque negro accesible en día y noche)
+        Box(
+            modifier = Modifier
+                .size(cellSize)
+                .background(boardColors.blockedCellBackground)
+                .border(
+                    width = if (isHighContrast) 1.5.dp else 0.5.dp,
+                    color = boardColors.blockedCellBorder,
+                )
+                .clearAndSetSemantics { },
+        )
+        return
+    }
+
+    // Colores y bordes según prioridad de estado y accesibilidad:
+    // 1. isIncorrect -> Error con borde reforzado
+    // 2. isHintRevealed -> Pista asistida
+    // 3. isValidated -> Respuesta correcta / validada
+    // 4. isSelected -> Foco principal
+    // 5. isInActiveWord -> Palabra en edición
+    // 6. Normal -> Celda estándar
+    val backgroundColor = when {
+        isIncorrect -> boardColors.incorrectCellBackground
+        isHintRevealed && isSelected -> boardColors.hintCellBackground
+        isHintRevealed -> boardColors.hintCellBackground
+        isValidated && isSelected -> boardColors.validatedCellBackground
+        isValidated -> boardColors.validatedCellBackground
+        isSelected -> boardColors.selectedCellBackground
+        isInActiveWord -> boardColors.activeWordBackground
+        else -> boardColors.cellBackground
+    }
+
+    val borderColor = when {
+        isIncorrect -> boardColors.incorrectCellBorder
+        isHintRevealed -> boardColors.hintCellBorder
+        isSelected -> boardColors.selectedCellBorder
+        isValidated -> boardColors.validatedCellBorder
+        isInActiveWord -> boardColors.activeWordBorder
+        else -> boardColors.cellBorder
+    }
+
+    // Grosor de borde diferenciado (los estados no dependen únicamente del color)
+    val borderWidth = when {
+        isSelected && isHighContrast -> 3.dp
+        isSelected -> 2.dp
+        isIncorrect && isHighContrast -> 2.5.dp
+        isIncorrect -> 1.5.dp
+        isValidated && isHighContrast -> 2.dp
+        isValidated || isHintRevealed -> 1.2.dp
+        isInActiveWord && isHighContrast -> 1.5.dp
+        isInActiveWord -> 1.dp
+        isHighContrast -> 1.5.dp
+        else -> 0.5.dp
+    }
+
+    val letterColor = when {
+        isIncorrect -> boardColors.incorrectCellBorder
+        isSelected && isHighContrast -> MaterialTheme.colorScheme.onPrimaryContainer
+        isSelected -> MaterialTheme.colorScheme.onPrimaryContainer
+        else -> MaterialTheme.colorScheme.onSurface
+    }
+
+    val letterWeight = when {
+        isHighContrast || isValidated || isIncorrect -> FontWeight.ExtraBold
+        isSelected -> FontWeight.Bold
+        else -> FontWeight.Bold
+    }
+
+    val clueNumberColor = when {
+        isSelected -> MaterialTheme.colorScheme.primary
+        isHighContrast -> MaterialTheme.colorScheme.onSurface
+        else -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
+
+    val semanticDesc = buildString {
+        append("Celda fila ${cell.row + 1}, columna ${cell.col + 1}")
+        if (cell.clueNumber != null) append(", número ${cell.clueNumber}")
+        if (isSelected) {
+            val dirName = if (activeDirection == CruciluxDirection.HORIZONTAL) "horizontal" else "vertical"
+            append(", seleccionada en dirección $dirName")
+        } else if (isInActiveWord) {
+            append(", en palabra activa")
+        }
+        if (isValidated) {
+            append(", palabra validada")
+        }
+        if (isHintRevealed) append(", letra revelada y protegida por pista")
+        if (userLetter != null) {
+            append(", letra $userLetter")
+        } else {
+            append(", vacía")
+        }
+        if (isIncorrect) append(", incorrecta")
+    }
+
+    Box(
+        modifier = Modifier
+            .size(cellSize)
+            .background(backgroundColor)
+            .border(width = borderWidth, color = borderColor)
+            .clickable(
+                role = Role.Button,
+                onClick = onCellTapped,
+            )
+            .semantics {
+                selected = isSelected
+                contentDescription = semanticDesc
+            },
+        contentAlignment = Alignment.Center,
+    ) {
+        // Número de pista
+        if (cell.clueNumber != null) {
+            Text(
+                text = cell.clueNumber.toString(),
+                style = TextStyle(
+                    fontSize = clueNumberSp,
+                    fontWeight = if (isHighContrast) FontWeight.ExtraBold else FontWeight.Bold,
+                    color = clueNumberColor,
+                ),
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .offset(x = 1.5.dp, y = 0.5.dp),
+            )
+        }
+
+        // Letra introducida por el usuario
+        if (userLetter != null) {
+            Text(
+                text = userLetter.toString(),
+                style = TextStyle(
+                    fontSize = letterSp,
+                    fontWeight = letterWeight,
+                    color = letterColor,
+                    textAlign = TextAlign.Center,
+                ),
+            )
+        }
+
+        if (isHintRevealed) {
+            Text(
+                text = "★",
+                style = TextStyle(
+                    fontSize = clueNumberSp,
+                    fontWeight = FontWeight.Black,
+                    color = boardColors.hintCellBorder,
+                ),
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .offset(x = (-1).dp, y = (-0.5).dp),
+            )
+        }
+    }
+}
