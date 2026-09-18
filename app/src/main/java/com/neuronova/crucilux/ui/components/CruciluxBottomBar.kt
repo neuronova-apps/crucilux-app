@@ -2,6 +2,7 @@ package com.neuronova.crucilux.ui.components
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -13,6 +14,7 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.PlayArrow
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -23,6 +25,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import com.neuronova.crucilux.ui.theme.LocalCruciluxHighContrast
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -70,48 +73,59 @@ fun CruciluxBottomBar(
     onNavigate: (Screen) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    NavigationBar(
-        modifier       = modifier,
-        containerColor = MaterialTheme.colorScheme.surfaceVariant,
-        tonalElevation = 3.dp,
-    ) {
-        navItems.forEach { item ->
-            val selected = currentRoute == item.screen.route
-            NavigationBarItem(
-                selected = selected,
-                onClick  = { onNavigate(item.screen) },
-                modifier = Modifier.semantics {
-                    contentDescription = item.contentDesc
-                },
-                icon = {
-                    Box(
-                        modifier = Modifier
-                            .size(38.dp)
-                            .clearAndSetSemantics { },
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Surface(
-                            modifier = Modifier.fillMaxSize(),
-                            shape    = CircleShape,
-                            color    = if (selected) {
-                                MaterialTheme.colorScheme.primaryContainer
-                            } else {
-                                MaterialTheme.colorScheme.surface
-                            },
-                            contentColor = if (selected) {
-                                MaterialTheme.colorScheme.onPrimaryContainer
-                            } else {
-                                MaterialTheme.colorScheme.onSurfaceVariant
-                            },
-                            border = BorderStroke(
-                                width = if (selected) 2.dp else 1.dp,
-                                color = if (selected) {
-                                    MaterialTheme.colorScheme.primary
-                                } else {
-                                    MaterialTheme.colorScheme.outlineVariant
-                                },
-                            ),
+    val isHighContrast = LocalCruciluxHighContrast.current
+    Column(modifier = modifier) {
+        if (isHighContrast) {
+            HorizontalDivider(
+                thickness = 1.dp,
+                color = MaterialTheme.colorScheme.outline,
+            )
+        }
+        NavigationBar(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+            tonalElevation = 3.dp,
+        ) {
+            navItems.forEach { item ->
+                val selected = currentRoute == item.screen.route
+                NavigationBarItem(
+                    selected = selected,
+                    onClick  = { onNavigate(item.screen) },
+                    modifier = Modifier.semantics {
+                        contentDescription = item.contentDesc
+                    },
+                    icon = {
+                        Box(
+                            modifier = Modifier
+                                .size(38.dp)
+                                .clearAndSetSemantics { },
+                            contentAlignment = Alignment.Center,
                         ) {
+                            Surface(
+                                modifier = Modifier.fillMaxSize(),
+                                shape    = CircleShape,
+                                color    = if (selected) {
+                                    MaterialTheme.colorScheme.primaryContainer
+                                } else {
+                                    MaterialTheme.colorScheme.surface
+                                },
+                                contentColor = if (selected) {
+                                    MaterialTheme.colorScheme.onPrimaryContainer
+                                } else {
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                },
+                                border = BorderStroke(
+                                    width = if (isHighContrast) {
+                                        if (selected) 2.5.dp else 1.5.dp
+                                    } else {
+                                        if (selected) 2.dp else 1.dp
+                                    },
+                                    color = if (selected) {
+                                        MaterialTheme.colorScheme.primary
+                                    } else {
+                                        if (isHighContrast) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.outlineVariant
+                                    },
+                                ),
+                            ) {
                             Icon(
                                 imageVector        = if (selected) item.selectedIcon else item.unselectedIcon,
                                 contentDescription = null,
@@ -152,3 +166,5 @@ fun CruciluxBottomBar(
         }
     }
 }
+}
+

@@ -1,9 +1,12 @@
-﻿package com.neuronova.crucilux.ui.game
+package com.neuronova.crucilux.ui.game
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -371,7 +374,12 @@ private fun GameHeader(
             OutlinedButton(
                 onClick = onHint,
                 enabled = hintEnabled,
-                modifier = Modifier.height(34.dp),
+                modifier = Modifier.defaultMinSize(minHeight = 36.dp),
+                border = if (com.neuronova.crucilux.ui.theme.LocalCruciluxHighContrast.current) {
+                    BorderStroke(1.5.dp, MaterialTheme.colorScheme.outline)
+                } else {
+                    ButtonDefaults.outlinedButtonBorder(enabled = hintEnabled)
+                },
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 10.dp),
             ) {
                 Icon(
@@ -380,7 +388,7 @@ private fun GameHeader(
                     modifier = Modifier.size(16.dp),
                 )
                 Spacer(Modifier.width(4.dp))
-                Text("Pista", fontSize = 12.sp)
+                Text("Pista", style = MaterialTheme.typography.labelMedium)
             }
         }
     }
@@ -394,16 +402,21 @@ private fun ActiveClueNavigationCard(
     onNext: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val isHighContrast = com.neuronova.crucilux.ui.theme.LocalCruciluxHighContrast.current
+
     Card(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 8.dp, vertical = 2.dp),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (isValidated) CruciluxThemeColors.success.copy(alpha = 0.12f)
+            containerColor = if (isValidated) CruciluxThemeColors.success.copy(alpha = if (isHighContrast) 0.25f else 0.12f)
             else MaterialTheme.colorScheme.surfaceContainerLow,
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = if (isHighContrast) {
+            BorderStroke(1.5.dp, if (isValidated) CruciluxThemeColors.success else MaterialTheme.colorScheme.outline)
+        } else null,
     ) {
         Column(
             modifier = Modifier
@@ -439,7 +452,7 @@ private fun ActiveClueNavigationCard(
                         Text(
                             text = "${activeClue.number} $dirName",
                             style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold,
+                            fontWeight = if (isHighContrast) FontWeight.ExtraBold else FontWeight.Bold,
                             color = if (isValidated) CruciluxThemeColors.success else MaterialTheme.colorScheme.onSurface,
                         )
 
@@ -447,13 +460,18 @@ private fun ActiveClueNavigationCard(
                             Box(
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(4.dp))
-                                    .background(CruciluxThemeColors.success.copy(alpha = 0.2f))
+                                    .then(
+                                        if (isHighContrast) {
+                                            Modifier.border(width = 1.dp, color = CruciluxThemeColors.success, shape = RoundedCornerShape(4.dp))
+                                        } else Modifier
+                                    )
+                                    .background(CruciluxThemeColors.success.copy(alpha = if (isHighContrast) 0.35f else 0.2f))
                                     .padding(horizontal = 6.dp, vertical = 2.dp),
                             ) {
                                 Text(
                                     text = "✓ Resuelta",
                                     fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
+                                    fontWeight = FontWeight.ExtraBold,
                                     color = CruciluxThemeColors.success,
                                 )
                             }
@@ -486,7 +504,7 @@ private fun ActiveClueNavigationCard(
                 Text(
                     text = activeClue.clue,
                     style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Medium,
+                    fontWeight = if (isHighContrast) FontWeight.SemiBold else FontWeight.Medium,
                     color = MaterialTheme.colorScheme.onSurface,
                     textAlign = TextAlign.Center,
                     maxLines = 3,
@@ -498,7 +516,7 @@ private fun ActiveClueNavigationCard(
                 Text(
                     text = activeClue.formatLengthInfo(),
                     style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.SemiBold,
+                    fontWeight = if (isHighContrast) FontWeight.Bold else FontWeight.SemiBold,
                     color = if (isValidated) CruciluxThemeColors.success else MaterialTheme.colorScheme.primary,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.padding(top = 1.dp, bottom = 2.dp),

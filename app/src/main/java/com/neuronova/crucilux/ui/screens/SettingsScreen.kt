@@ -1,5 +1,6 @@
 package com.neuronova.crucilux.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -15,7 +16,14 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.RadioButtonDefaults
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
@@ -31,6 +39,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -59,9 +68,11 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.neuronova.crucilux.data.TextSizePreference
 import com.neuronova.crucilux.data.UserPreferences
 import com.neuronova.crucilux.data.UserPreferencesManager
 import com.neuronova.crucilux.ui.components.OptionSelectorGroup
+import com.neuronova.crucilux.ui.theme.LocalCruciluxHighContrast
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -74,6 +85,7 @@ fun SettingsScreen(
     modifier: Modifier = Modifier,
 ) {
     val coroutineScope = rememberCoroutineScope()
+    val isHighContrast = LocalCruciluxHighContrast.current
     var nameInput by remember { mutableStateOf(userPreferences.userName) }
     var saveFeedback by remember { mutableStateOf<String?>(null) }
 
@@ -83,33 +95,38 @@ fun SettingsScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = "Configuración",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                    )
-                },
-                navigationIcon = {
-                    IconButton(
-                        onClick = onVolver,
-                        modifier = Modifier.semantics {
-                            contentDescription = "Volver a Inicio"
-                        },
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = null,
+            Column {
+                TopAppBar(
+                    title = {
+                        Text(
+                            text = "Configuración",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
                         )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background,
-                    titleContentColor = MaterialTheme.colorScheme.onBackground,
-                    navigationIconContentColor = MaterialTheme.colorScheme.onBackground,
-                ),
-            )
+                    },
+                    navigationIcon = {
+                        IconButton(
+                            onClick = onVolver,
+                            modifier = Modifier.semantics {
+                                contentDescription = "Volver a Inicio"
+                            },
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = null,
+                            )
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.background,
+                        titleContentColor = MaterialTheme.colorScheme.onBackground,
+                        navigationIconContentColor = MaterialTheme.colorScheme.onBackground,
+                    ),
+                )
+                if (isHighContrast) {
+                    HorizontalDivider(thickness = 1.5.dp, color = MaterialTheme.colorScheme.outline)
+                }
+            }
         },
         modifier = modifier.background(MaterialTheme.colorScheme.background),
     ) { innerPadding ->
@@ -201,7 +218,7 @@ fun SettingsScreen(
             // ── 2. Sección Apariencia: Modo Día / Noche ──────────────────────
             SettingsCard(
                 icon = if (userPreferences.isDarkMode) Icons.Default.Brightness4 else Icons.Default.Brightness7,
-                title = "Tema de la aplicación",
+                title = "Apariencia",
                 subtitle = "Selecciona el estilo visual de Crucilux.",
             ) {
                 OptionSelectorGroup(
@@ -217,36 +234,76 @@ fun SettingsScreen(
                 )
             }
 
-            // ── 3. Sección Accesibilidad: Alto Contraste ─────────────────────
+            // ── 3. Sección Accesibilidad (Patrón visual unificado de Brailux) ─────────
             SettingsCard(
                 icon = Icons.Default.Contrast,
-                title = "Alto contraste",
-                subtitle = "Refuerza los bordes, textos y contrastes de color para mejorar la visibilidad.",
+                title = "Accesibilidad",
+                subtitle = "Opciones para facilitar la visualización y lectura.",
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
+                // 3.1. Fila principal: Modo de alto contraste
+                SettingsToggle(
+                    title = "Modo de alto contraste",
+                    subtitle = "Refuerza fondos oscuros, textos blancos y bordes para máxima visibilidad.",
+                    checked = userPreferences.isHighContrast,
+                    onCheckedChange = { enabled ->
+                        coroutineScope.launch {
+                            preferencesManager.setHighContrast(enabled)
+                        }
+                    },
+                )
+
+                HorizontalDivider(
+                    modifier = Modifier.padding(vertical = 4.dp),
+                    color = if (isHighContrast) MaterialTheme.colorScheme.outline
+                    else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                    thickness = if (isHighContrast) 1.5.dp else 1.dp,
+                )
+
+                // 3.2. Sección Tamaño de texto
+                Text(
+                    text = "Tamaño de texto",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.padding(top = 2.dp),
+                )
+                Text(
+                    text = "Ajusta la escala tipográfica en toda la aplicación.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 4.dp)
+                        .selectableGroup(),
                 ) {
-                    Text(
-                        text = if (userPreferences.isHighContrast) "Activado" else "Desactivado",
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                    Switch(
-                        checked = userPreferences.isHighContrast,
-                        onCheckedChange = { enabled ->
+                    SelectionOptionRow(
+                        label = "Normal",
+                        selected = userPreferences.textSize == TextSizePreference.Normal,
+                        onSelect = {
                             coroutineScope.launch {
-                                preferencesManager.setHighContrast(enabled)
+                                preferencesManager.setTextSize(TextSizePreference.Normal)
                             }
                         },
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = MaterialTheme.colorScheme.primary,
-                            checkedTrackColor = MaterialTheme.colorScheme.primaryContainer,
-                        ),
-                        modifier = Modifier.semantics {
-                            contentDescription = "Interruptor de alto contraste, actualmente ${if (userPreferences.isHighContrast) "activado" else "desactivado"}"
+                    )
+                    SelectionOptionRow(
+                        label = "Grande",
+                        selected = userPreferences.textSize == TextSizePreference.Large,
+                        onSelect = {
+                            coroutineScope.launch {
+                                preferencesManager.setTextSize(TextSizePreference.Large)
+                            }
+                        },
+                    )
+                    SelectionOptionRow(
+                        label = "Muy grande",
+                        selected = userPreferences.textSize == TextSizePreference.VeryLarge,
+                        onSelect = {
+                            coroutineScope.launch {
+                                preferencesManager.setTextSize(TextSizePreference.VeryLarge)
+                            }
                         },
                     )
                 }
@@ -262,10 +319,9 @@ fun SettingsScreen(
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                border = CardDefaults.outlinedCardBorder().copy(
-                    brush = androidx.compose.ui.graphics.SolidColor(
-                        MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
-                    )
+                border = BorderStroke(
+                    width = if (isHighContrast) 1.5.dp else 1.dp,
+                    color = if (isHighContrast) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f),
                 ),
             ) {
                 Row(
@@ -329,15 +385,15 @@ private fun SettingsCard(
     subtitle: String,
     content: @Composable () -> Unit,
 ) {
+    val isHighContrast = LocalCruciluxHighContrast.current
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        border = CardDefaults.outlinedCardBorder().copy(
-            brush = androidx.compose.ui.graphics.SolidColor(
-                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
-            )
+        border = BorderStroke(
+            width = if (isHighContrast) 1.5.dp else 1.dp,
+            color = if (isHighContrast) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f),
         ),
     ) {
         Column(
@@ -381,3 +437,105 @@ private fun SettingsCard(
         }
     }
 }
+
+@Composable
+private fun SettingsToggle(
+    title: String,
+    subtitle: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val isHighContrast = LocalCruciluxHighContrast.current
+    val state = if (checked) "Activado" else "Desactivado"
+
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .heightIn(min = 56.dp)
+            .semantics(mergeDescendants = true) {
+                stateDescription = state
+            }
+            .toggleable(
+                value = checked,
+                role = Role.Switch,
+                onValueChange = onCheckedChange,
+            )
+            .padding(vertical = 4.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .padding(end = 16.dp)
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Switch(
+            checked = checked,
+            onCheckedChange = null,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = if (isHighContrast) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary,
+                checkedTrackColor = if (isHighContrast) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primaryContainer,
+                checkedBorderColor = if (isHighContrast) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+                uncheckedThumbColor = MaterialTheme.colorScheme.outline,
+                uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant,
+                uncheckedBorderColor = MaterialTheme.colorScheme.outline,
+            ),
+        )
+    }
+}
+
+@Composable
+private fun SelectionOptionRow(
+    label: String,
+    selected: Boolean,
+    onSelect: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val state = if (selected) "Seleccionado" else "No seleccionado"
+
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .heightIn(min = 52.dp)
+            .semantics(mergeDescendants = true) {
+                stateDescription = state
+            }
+            .selectable(
+                selected = selected,
+                role = Role.RadioButton,
+                onClick = onSelect,
+            )
+            .padding(horizontal = 4.dp, vertical = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        RadioButton(
+            selected = selected,
+            onClick = null,
+            colors = RadioButtonDefaults.colors(
+                selectedColor = MaterialTheme.colorScheme.primary,
+                unselectedColor = MaterialTheme.colorScheme.outline,
+            ),
+        )
+        Text(
+            text = label,
+            modifier = Modifier.padding(start = 12.dp),
+            style = MaterialTheme.typography.bodyLarge,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+            color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+        )
+    }
+}
+

@@ -34,32 +34,7 @@ val LightOnError              = Color(0xFFFFFFFF)
 val LightErrorContainer       = Color(0xFFFFDAD6)
 val LightOnErrorContainer     = Color(0xFF410002)
 
-// 2. Modo Día + Alto Contraste
-val LightHCDayPrimary              = Color(0xFF002984) // Azul oscuro de máximo contraste
-val LightHCDayOnPrimary            = Color(0xFFFFFFFF)
-val LightHCDayPrimaryContainer     = Color(0xFFBBDEFB)
-val LightHCDayOnPrimaryContainer   = Color(0xFF000000)
-
-val LightHCDaySecondary            = Color(0xFF004D40)
-val LightHCDayOnSecondary          = Color(0xFFFFFFFF)
-val LightHCDaySecondaryContainer   = Color(0xFFB2DFDB)
-val LightHCDayOnSecondaryContainer = Color(0xFF000000)
-
-val LightHCDayTertiary             = Color(0xFF4A148C)
-val LightHCDayOnTertiary           = Color(0xFFFFFFFF)
-val LightHCDayTertiaryContainer    = Color(0xFFE1BEE7)
-val LightHCDayOnTertiaryContainer  = Color(0xFF000000)
-
-val LightHCDayBackground           = Color(0xFFFFFFFF) // Blanco puro
-val LightHCDayOnBackground         = Color(0xFF000000) // Negro absoluto
-val LightHCDaySurface              = Color(0xFFFFFFFF)
-val LightHCDayOnSurface            = Color(0xFF000000)
-val LightHCDaySurfaceVariant       = Color(0xFFE0E0E0)
-val LightHCDayOnSurfaceVariant     = Color(0xFF212121)
-val LightHCDayOutline              = Color(0xFF000000) // Borde negro definido
-val LightHCDayOutlineVariant       = Color(0xFF424242)
-
-// 3. Modo Noche Normal
+// 2. Modo Noche Normal
 val DarkPrimary               = Color(0xFF90CAF9)
 val DarkOnPrimary             = Color(0xFF003258)
 val DarkPrimaryContainer      = Color(0xFF0D47A1)
@@ -89,35 +64,78 @@ val DarkOnError               = Color(0xFF690005)
 val DarkErrorContainer        = Color(0xFF93000A)
 val DarkOnErrorContainer      = Color(0xFFFFDAD6)
 
-// 4. Modo Noche + Alto Contraste
-val DarkHCNightPrimary              = Color(0xFF40C4FF) // Cian brillante de alto impacto
-val DarkHCNightOnPrimary            = Color(0xFF000000)
-val DarkHCNightPrimaryContainer     = Color(0xFF004D73)
-val DarkHCNightOnPrimaryContainer   = Color(0xFFFFFFFF)
+// 3. Modo de Alto Contraste Integral (Fondo negro real #000000, texto blanco #FFFFFF, WCAG AAA)
+val HighContrastBackground           = Color(0xFF000000) // Negro real #000000
+val HighContrastForeground           = Color(0xFFFFFFFF) // Blanco puro #FFFFFF
+val HighContrastForegroundSecondary  = Color(0xFFE0E0E0) // Texto secundario de alta legibilidad
+val HighContrastSurface              = Color(0xFF121212) // Superficie oscura con bordes
+val HighContrastSurfaceVariant       = Color(0xFF1E1E1E) // Contenedores y teclas
+val HighContrastOutline              = Color(0xFFFFFFFF) // Borde blanco nítido
+val HighContrastOutlineVariant       = Color(0xFFBDBDBD)
 
-val DarkHCNightSecondary            = Color(0xFF69F0AE)
-val DarkHCNightOnSecondary          = Color(0xFF000000)
-val DarkHCNightSecondaryContainer   = Color(0xFF004D40)
-val DarkHCNightOnSecondaryContainer = Color(0xFFFFFFFF)
+// Acento Crucilux de alta visibilidad (Cian eléctrico con contraste > 10:1 en fondo negro)
+val HighContrastPrimary              = Color(0xFF40C4FF)
+val HighContrastOnPrimary            = Color(0xFF000000)
+val HighContrastPrimaryContainer     = Color(0xFF003859)
+val HighContrastOnPrimaryContainer   = Color(0xFFFFFFFF)
 
-val DarkHCNightTertiary             = Color(0xFFEA80FC)
-val DarkHCNightOnTertiary           = Color(0xFF000000)
-val DarkHCNightTertiaryContainer    = Color(0xFF4A148C)
-val DarkHCNightOnTertiaryContainer  = Color(0xFFFFFFFF)
+// Acento secundario y racha (Ámbar brillante con contraste > 10:1 en fondo negro)
+val HighContrastSecondary            = Color(0xFFFFAB40)
+val HighContrastOnSecondary          = Color(0xFF000000)
+val HighContrastSecondaryContainer   = Color(0xFF4A2800)
+val HighContrastOnSecondaryContainer = Color(0xFFFFFFFF)
 
-val DarkHCNightBackground           = Color(0xFF000000) // Negro absoluto
-val DarkHCNightOnBackground         = Color(0xFFFFFFFF) // Blanco puro
-val DarkHCNightSurface              = Color(0xFF121212)
-val DarkHCNightOnSurface            = Color(0xFFFFFFFF)
-val DarkHCNightSurfaceVariant       = Color(0xFF262626)
-val DarkHCNightOnSurfaceVariant     = Color(0xFFE0E0E0)
-val DarkHCNightOutline              = Color(0xFFFFFFFF) // Borde blanco definido
-val DarkHCNightOutlineVariant       = Color(0xFFBDBDBD)
+// Resaltados asistidos y pistas (Magenta claro con contraste > 10:1 en fondo negro)
+val HighContrastTertiary             = Color(0xFFEA80FC)
+val HighContrastOnTertiary           = Color(0xFF000000)
+val HighContrastTertiaryContainer    = Color(0xFF38006B)
+val HighContrastOnTertiaryContainer  = Color(0xFFFFFFFF)
 
-// Acentos semánticos
+// Estados de éxito y error con diferenciación estricta
+val HighContrastSuccess              = Color(0xFF00E676) // Verde menta brillante (> 12:1)
+val HighContrastOnSuccess            = Color(0xFF000000)
+val HighContrastSuccessContainer     = Color(0xFF003822)
+val HighContrastOnSuccessContainer   = Color(0xFFFFFFFF)
+
+val HighContrastError                = Color(0xFFFF5252) // Rojo brillante vivo (> 6.5:1)
+val HighContrastOnError              = Color(0xFF000000)
+val HighContrastErrorContainer       = Color(0xFF5A0004)
+val HighContrastOnErrorContainer     = Color(0xFFFFFFFF)
+
+// Compatibilidad retroactiva de referencias existentes
+val DarkHCNightBackground            = HighContrastBackground
+val DarkHCNightOnBackground          = HighContrastForeground
+val DarkHCNightSurface               = HighContrastSurface
+val DarkHCNightOnSurface             = HighContrastForeground
+val DarkHCNightSurfaceVariant        = HighContrastSurfaceVariant
+val DarkHCNightOnSurfaceVariant      = HighContrastForegroundSecondary
+val DarkHCNightOutline               = HighContrastOutline
+val DarkHCNightOutlineVariant        = HighContrastOutlineVariant
+val DarkHCNightPrimary               = HighContrastPrimary
+val DarkHCNightOnPrimary             = HighContrastOnPrimary
+val DarkHCNightPrimaryContainer      = HighContrastPrimaryContainer
+val DarkHCNightOnPrimaryContainer    = HighContrastOnPrimaryContainer
+val DarkHCNightSecondary             = HighContrastSecondary
+val DarkHCNightOnSecondary           = HighContrastOnSecondary
+val DarkHCNightSecondaryContainer    = HighContrastSecondaryContainer
+val DarkHCNightOnSecondaryContainer  = HighContrastOnSecondaryContainer
+val DarkHCNightTertiary              = HighContrastTertiary
+val DarkHCNightOnTertiary            = HighContrastOnTertiary
+val DarkHCNightTertiaryContainer     = HighContrastTertiaryContainer
+val DarkHCNightOnTertiaryContainer   = HighContrastOnTertiaryContainer
+val DarkHCNightError                 = HighContrastError
+val DarkHCNightOnError               = HighContrastOnError
+val DarkHCNightErrorContainer        = HighContrastErrorContainer
+val DarkHCNightOnErrorContainer      = HighContrastOnErrorContainer
+val DarkHCNightSuccess               = HighContrastSuccess
+val DarkHCNightProgress              = HighContrastPrimary
+val DarkHCNightStreak                = HighContrastSecondary
+
+// 4. Acentos semánticos estándar
 val StreakOrange              = Color(0xFFA54300)
 val SuccessGreen              = Color(0xFF2E7D32)
 val ProgressBlue              = Color(0xFF1976D2)
 val DarkStreakOrange          = Color(0xFFFFB74D)
 val DarkSuccessGreen          = Color(0xFF81C784)
 val DarkProgressBlue          = Color(0xFF64B5F6)
+

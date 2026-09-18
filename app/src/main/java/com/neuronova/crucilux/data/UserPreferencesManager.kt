@@ -16,12 +16,38 @@ import java.io.IOException
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "crucilux_user_preferences")
 
 /**
+ * Escala global de tamaño de texto para accesibilidad visual en Crucilux.
+ *
+ * Valores:
+ * - Normal: 1.00f (valor predeterminado)
+ * - Grande: 1.15f
+ * - Muy grande: 1.30f
+ *
+ * Se aplica multiplicando la escala del sistema por [scaleFactor], sin sustituirla.
+ */
+enum class TextSizePreference(
+    internal val storedValue: String,
+    val scaleFactor: Float,
+) {
+    Normal(storedValue = "normal", scaleFactor = 1.0f),
+    Large(storedValue = "large", scaleFactor = 1.15f),
+    VeryLarge(storedValue = "very_large", scaleFactor = 1.3f),
+    ;
+
+    companion object {
+        fun fromStoredValue(value: String?): TextSizePreference =
+            entries.firstOrNull { it.storedValue == value } ?: Normal
+    }
+}
+
+/**
  * Modelo inmutable para agrupar las preferencias del usuario.
  */
 data class UserPreferences(
     val userName: String = "",
     val isDarkMode: Boolean = false,
     val isHighContrast: Boolean = false,
+    val textSize: TextSizePreference = TextSizePreference.Normal,
     val seasonalThemesEnabled: Boolean = true,
     val defaultCheckMode: String = "CLASSIC",
 )
@@ -34,14 +60,16 @@ data class UserPreferences(
  * 3. Alto contraste.
  * 4. Habilitación de temas de temporada.
  */
-class UserPreferencesManager(context: Context) {
-
-    private val preferencesDataStore: DataStore<Preferences> = context.applicationContext.dataStore
+class UserPreferencesManager internal constructor(
+    private val preferencesDataStore: DataStore<Preferences>,
+) {
+    constructor(context: Context) : this(context.applicationContext.dataStore)
 
     companion object {
         private val KEY_USER_NAME = stringPreferencesKey("user_name")
         private val KEY_IS_DARK_MODE = booleanPreferencesKey("is_dark_mode")
         private val KEY_IS_HIGH_CONTRAST = booleanPreferencesKey("is_high_contrast")
+        private val KEY_TEXT_SIZE = stringPreferencesKey("text_size")
         private val KEY_SEASONAL_THEMES_ENABLED = booleanPreferencesKey("seasonal_themes_enabled")
         private val KEY_DEFAULT_CHECK_MODE = stringPreferencesKey("default_check_mode")
 
@@ -68,6 +96,7 @@ class UserPreferencesManager(context: Context) {
                 userName = preferences[KEY_USER_NAME] ?: "",
                 isDarkMode = preferences[KEY_IS_DARK_MODE] ?: false, // Modo día por defecto
                 isHighContrast = preferences[KEY_IS_HIGH_CONTRAST] ?: false,
+                textSize = TextSizePreference.fromStoredValue(preferences[KEY_TEXT_SIZE]),
                 seasonalThemesEnabled = preferences[KEY_SEASONAL_THEMES_ENABLED] ?: true, // Activado por defecto
                 defaultCheckMode = preferences[KEY_DEFAULT_CHECK_MODE] ?: "CLASSIC",
             )
@@ -108,6 +137,15 @@ class UserPreferencesManager(context: Context) {
     suspend fun setHighContrast(enabled: Boolean) {
         preferencesDataStore.edit { preferences ->
             preferences[KEY_IS_HIGH_CONTRAST] = enabled
+        }
+    }
+
+    /**
+     * Guarda la preferencia global de tamaño de texto.
+     */
+    suspend fun setTextSize(textSize: TextSizePreference) {
+        preferencesDataStore.edit { preferences ->
+            preferences[KEY_TEXT_SIZE] = textSize.storedValue
         }
     }
 

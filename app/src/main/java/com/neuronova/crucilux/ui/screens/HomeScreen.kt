@@ -1,11 +1,13 @@
 package com.neuronova.crucilux.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import com.neuronova.crucilux.R
+import com.neuronova.crucilux.ui.theme.LocalCruciluxHighContrast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -157,9 +159,10 @@ fun HomeScreen(
             modifier  = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp)
-                .height(52.dp)
+                .defaultMinSize(minHeight = 52.dp)
                 .semantics { contentDescription = "Comenzar a jugar crucigramas" },
             shape     = RoundedCornerShape(14.dp),
+            border    = if (LocalCruciluxHighContrast.current) BorderStroke(1.5.dp, MaterialTheme.colorScheme.outline) else null,
             colors    = ButtonDefaults.buttonColors(
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor   = MaterialTheme.colorScheme.onPrimary,
@@ -277,6 +280,7 @@ private fun HomeHeader(
 
 @Composable
 private fun CrosswordBrandVisual(modifier: Modifier = Modifier) {
+    val isHighContrast = LocalCruciluxHighContrast.current
     val grid = listOf(
         listOf("C", "R", "U"),
         listOf(" ", "X", " "),
@@ -300,13 +304,15 @@ private fun CrosswordBrandVisual(modifier: Modifier = Modifier) {
                                 .size(26.dp)
                                 .clip(RoundedCornerShape(4.dp))
                                 .background(
-                                    if (active) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.65f)
-                                    else Color.Transparent,
+                                    if (active) {
+                                        if (isHighContrast) MaterialTheme.colorScheme.primaryContainer
+                                        else MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.65f)
+                                    } else Color.Transparent,
                                 )
                                 .then(
                                     if (active) Modifier.border(
-                                        width = 1.dp,
-                                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.25f),
+                                        width = if (isHighContrast) 1.5.dp else 1.dp,
+                                        color = if (isHighContrast) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary.copy(alpha = 0.25f),
                                         shape = RoundedCornerShape(4.dp),
                                     ) else Modifier
                                 ),
@@ -344,11 +350,15 @@ private fun StatsCard(
         shape     = RoundedCornerShape(16.dp),
         colors    = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        border    = CardDefaults.outlinedCardBorder().copy(
-            brush = androidx.compose.ui.graphics.SolidColor(
-                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
+        border    = if (LocalCruciluxHighContrast.current) {
+            BorderStroke(1.5.dp, MaterialTheme.colorScheme.outline)
+        } else {
+            CardDefaults.outlinedCardBorder().copy(
+                brush = androidx.compose.ui.graphics.SolidColor(
+                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
+                )
             )
-        ),
+        },
     ) {
         Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp)) {
             Text(
@@ -425,7 +435,7 @@ private fun StatDivider() {
         modifier = Modifier
             .width(1.dp)
             .height(38.dp)
-            .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+            .background(if (LocalCruciluxHighContrast.current) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
     )
 }
 
@@ -444,11 +454,15 @@ private fun DailyChallengeCard(modifier: Modifier = Modifier) {
             containerColor = MaterialTheme.colorScheme.surface,
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        border    = CardDefaults.outlinedCardBorder().copy(
-            brush = androidx.compose.ui.graphics.SolidColor(
-                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
+        border    = if (LocalCruciluxHighContrast.current) {
+            BorderStroke(1.5.dp, MaterialTheme.colorScheme.outline)
+        } else {
+            CardDefaults.outlinedCardBorder().copy(
+                brush = androidx.compose.ui.graphics.SolidColor(
+                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
+                )
             )
-        ),
+        },
     ) {
         Column(
             modifier = Modifier
@@ -497,11 +511,15 @@ private fun AchievementsCard(modifier: Modifier = Modifier) {
             containerColor = MaterialTheme.colorScheme.surface,
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        border    = CardDefaults.outlinedCardBorder().copy(
-            brush = androidx.compose.ui.graphics.SolidColor(
-                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
+        border    = if (LocalCruciluxHighContrast.current) {
+            BorderStroke(1.5.dp, MaterialTheme.colorScheme.outline)
+        } else {
+            CardDefaults.outlinedCardBorder().copy(
+                brush = androidx.compose.ui.graphics.SolidColor(
+                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
+                )
             )
-        ),
+        },
     ) {
         Column(
             modifier = Modifier
@@ -556,11 +574,15 @@ private fun SettingsEntryCard(
             containerColor = MaterialTheme.colorScheme.surface,
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        border    = CardDefaults.outlinedCardBorder().copy(
-            brush = androidx.compose.ui.graphics.SolidColor(
-                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
+        border    = if (LocalCruciluxHighContrast.current) {
+            BorderStroke(1.5.dp, MaterialTheme.colorScheme.outline)
+        } else {
+            CardDefaults.outlinedCardBorder().copy(
+                brush = androidx.compose.ui.graphics.SolidColor(
+                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
+                )
             )
-        ),
+        },
     ) {
         Row(
             modifier = Modifier
@@ -635,10 +657,14 @@ private fun ContinueGameCard(
             containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f),
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        border = CardDefaults.outlinedCardBorder().copy(
-            brush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.primary),
-            width = 1.5.dp,
-        ),
+        border = if (LocalCruciluxHighContrast.current) {
+            BorderStroke(1.5.dp, MaterialTheme.colorScheme.outline)
+        } else {
+            CardDefaults.outlinedCardBorder().copy(
+                brush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.primary),
+                width = 1.5.dp,
+            )
+        },
     ) {
         Row(
             modifier = Modifier

@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -55,6 +56,7 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.pm.PackageInfoCompat
 import com.neuronova.crucilux.R
 import com.neuronova.crucilux.data.NeuroNovaLinks
+import com.neuronova.crucilux.ui.theme.LocalCruciluxHighContrast
 import java.util.Calendar
 
 @Composable
@@ -132,6 +134,7 @@ fun AboutScreen(
                             "la experiencia a las preferencias del usuario."
                     )
                     BulletItem("Modo día y modo noche.")
+                    BulletItem("Ajuste global de tamaño de texto.")
                     BulletItem("Alto contraste para reforzar bordes y visibilidad.")
                     BulletItem("Personalización del nombre del jugador en el perfil local.")
                 }
@@ -243,9 +246,10 @@ private fun AboutHeader(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(48.dp),
+                .defaultMinSize(minHeight = 48.dp),
             contentAlignment = Alignment.Center,
         ) {
+            val isHighContrast = LocalCruciluxHighContrast.current
             Surface(
                 onClick = onVolver,
                 modifier = Modifier
@@ -254,7 +258,10 @@ private fun AboutHeader(
                     .semantics { contentDescription = "Volver a Configuración" },
                 shape = CircleShape,
                 color = MaterialTheme.colorScheme.surface,
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                border = BorderStroke(
+                    width = if (isHighContrast) 1.5.dp else 1.dp,
+                    color = if (isHighContrast) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.outlineVariant,
+                ),
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
@@ -320,11 +327,15 @@ private fun AboutSection(
     title: String,
     content: @Composable ColumnScope.() -> Unit,
 ) {
+    val isHighContrast = LocalCruciluxHighContrast.current
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        border = BorderStroke(
+            width = if (isHighContrast) 1.5.dp else 1.dp,
+            color = if (isHighContrast) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.outlineVariant,
+        ),
     ) {
         Column(
             modifier = Modifier.padding(18.dp),
@@ -376,6 +387,7 @@ private fun BulletItem(text: String) {
 @Composable
 private fun ExternalLink(label: String, url: String) {
     val context = LocalContext.current
+    val isHighContrast = LocalCruciluxHighContrast.current
 
     Surface(
         onClick = { openExternalUrl(context, url) },
@@ -387,8 +399,11 @@ private fun ExternalLink(label: String, url: String) {
                 role = Role.Button
             },
         shape = RoundedCornerShape(14.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        color = if (isHighContrast) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f),
+        border = BorderStroke(
+            width = if (isHighContrast) 1.5.dp else 1.dp,
+            color = if (isHighContrast) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.outlineVariant,
+        ),
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),

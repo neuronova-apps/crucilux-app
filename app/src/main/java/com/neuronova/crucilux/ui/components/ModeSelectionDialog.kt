@@ -1,5 +1,6 @@
 package com.neuronova.crucilux.ui.components
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -20,6 +21,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.neuronova.crucilux.ui.game.CheckMode
+import com.neuronova.crucilux.ui.theme.LocalCruciluxHighContrast
 
 @Composable
 fun ModeSelectionDialog(
@@ -28,7 +30,14 @@ fun ModeSelectionDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("¿Cómo quieres jugar?") },
+        title = {
+            Text(
+                text = "¿Cómo quieres jugar?",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+        },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 ModeOption(
@@ -54,6 +63,7 @@ private fun ModeOption(
     description: String,
     onClick: () -> Unit,
 ) {
+    val isHighContrast = LocalCruciluxHighContrast.current
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -61,7 +71,11 @@ private fun ModeOption(
             .semantics { contentDescription = "Modo $title. $description" },
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            containerColor = if (isHighContrast) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.surfaceContainerHigh,
+        ),
+        border = BorderStroke(
+            width = if (isHighContrast) 1.5.dp else 1.dp,
+            color = if (isHighContrast) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
         ),
     ) {
         Column(

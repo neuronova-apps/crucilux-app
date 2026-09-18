@@ -1,5 +1,6 @@
 package com.neuronova.crucilux.ui.components
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -143,6 +144,8 @@ fun <T> OptionSelectorGroup(
     labelProvider: (T) -> String,
     modifier: Modifier = Modifier,
 ) {
+    val isHighContrast = com.neuronova.crucilux.ui.theme.LocalCruciluxHighContrast.current
+
     Row(
         modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -151,16 +154,36 @@ fun <T> OptionSelectorGroup(
             val isSelected = option == selectedOption
             val label = labelProvider(option)
 
-            val borderColor = if (isSelected) {
-                MaterialTheme.colorScheme.primary
-            } else {
-                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
+            val borderColor = when {
+                isSelected -> MaterialTheme.colorScheme.primary
+                isHighContrast -> MaterialTheme.colorScheme.outline
+                else -> MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
             }
 
-            val backgroundColor = if (isSelected) {
-                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
-            } else {
-                MaterialTheme.colorScheme.surface
+            val borderWidth = when {
+                isSelected && isHighContrast -> 2.5.dp
+                isSelected -> 1.5.dp
+                isHighContrast -> 1.5.dp
+                else -> 1.dp
+            }
+
+            val backgroundColor = when {
+                isSelected && isHighContrast -> MaterialTheme.colorScheme.primaryContainer
+                isSelected -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
+                else -> MaterialTheme.colorScheme.surface
+            }
+
+            val textColor = when {
+                isSelected && isHighContrast -> MaterialTheme.colorScheme.onPrimaryContainer
+                isSelected -> MaterialTheme.colorScheme.primary
+                else -> MaterialTheme.colorScheme.onSurface
+            }
+
+            val fontWeight = when {
+                isSelected && isHighContrast -> FontWeight.ExtraBold
+                isSelected -> FontWeight.Bold
+                isHighContrast -> FontWeight.SemiBold
+                else -> FontWeight.Medium
             }
 
             Card(
@@ -176,10 +199,7 @@ fun <T> OptionSelectorGroup(
                 shape = RoundedCornerShape(12.dp),
                 colors = CardDefaults.cardColors(containerColor = backgroundColor),
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                border = CardDefaults.outlinedCardBorder().copy(
-                    brush = androidx.compose.ui.graphics.SolidColor(borderColor),
-                    width = if (isSelected) 1.5.dp else 1.dp,
-                ),
+                border = BorderStroke(borderWidth, borderColor),
             ) {
                 Column(
                     modifier = Modifier
@@ -191,8 +211,8 @@ fun <T> OptionSelectorGroup(
                     Text(
                         text = label,
                         style = MaterialTheme.typography.titleSmall,
-                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                        fontWeight = fontWeight,
+                        color = textColor,
                         textAlign = TextAlign.Center,
                     )
                 }

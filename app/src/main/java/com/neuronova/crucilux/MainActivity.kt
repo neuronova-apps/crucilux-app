@@ -36,6 +36,7 @@ class MainActivity : ComponentActivity() {
             CruciluxTheme(
                 darkTheme = userPreferences.isDarkMode,
                 highContrast = userPreferences.isHighContrast,
+                textSize = userPreferences.textSize,
             ) {
                 CruciluxApp(
                     userPreferences = userPreferences,

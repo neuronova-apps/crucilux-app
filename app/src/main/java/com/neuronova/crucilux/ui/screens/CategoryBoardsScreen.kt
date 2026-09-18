@@ -1,4 +1,4 @@
-﻿package com.neuronova.crucilux.ui.screens
+package com.neuronova.crucilux.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -55,6 +55,7 @@ import com.neuronova.crucilux.data.repository.CrosswordBoardProgress
 import com.neuronova.crucilux.data.repository.CrosswordProgressRepository
 import com.neuronova.crucilux.model.CruciluxBoard
 import com.neuronova.crucilux.ui.theme.CruciluxThemeColors
+import com.neuronova.crucilux.ui.theme.LocalCruciluxHighContrast
 import com.neuronova.crucilux.ui.components.ModeSelectionDialog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -350,19 +351,20 @@ private fun BoardCardItem(
 ) {
     val formattedIndex = String.format(Locale.ROOT, "%02d", index)
     val status = progress.status
+    val isHighContrast = LocalCruciluxHighContrast.current
 
     val (cardBg, borderColor) = when (status) {
         CrosswordBoardStatus.COMPLETED -> Pair(
-            CruciluxThemeColors.success.copy(alpha = 0.12f),
-            CruciluxThemeColors.success.copy(alpha = 0.6f),
+            if (isHighContrast) CruciluxThemeColors.success.copy(alpha = 0.20f) else CruciluxThemeColors.success.copy(alpha = 0.12f),
+            if (isHighContrast) CruciluxThemeColors.success else CruciluxThemeColors.success.copy(alpha = 0.6f),
         )
         CrosswordBoardStatus.IN_PROGRESS -> Pair(
-            CruciluxThemeColors.progress.copy(alpha = 0.08f),
-            CruciluxThemeColors.progress.copy(alpha = 0.5f),
+            if (isHighContrast) CruciluxThemeColors.progress.copy(alpha = 0.18f) else CruciluxThemeColors.progress.copy(alpha = 0.08f),
+            if (isHighContrast) CruciluxThemeColors.progress else CruciluxThemeColors.progress.copy(alpha = 0.5f),
         )
         CrosswordBoardStatus.NOT_STARTED -> Pair(
             MaterialTheme.colorScheme.surface,
-            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+            if (isHighContrast) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
         )
     }
 
@@ -377,7 +379,7 @@ private fun BoardCardItem(
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
             .clickable(role = Role.Button, onClick = onClick)
-            .border(1.dp, borderColor, RoundedCornerShape(12.dp))
+            .border(if (isHighContrast) 1.5.dp else 1.dp, borderColor, RoundedCornerShape(12.dp))
             .semantics { contentDescription = contentDesc },
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = cardBg),

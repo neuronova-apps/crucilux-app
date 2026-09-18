@@ -1,11 +1,13 @@
 package com.neuronova.crucilux.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -52,6 +54,7 @@ import com.neuronova.crucilux.data.GameSessionManager
 import com.neuronova.crucilux.data.GameSessionState
 import com.neuronova.crucilux.data.bank.CruciluxBankRepository
 import com.neuronova.crucilux.ui.theme.CruciluxThemeColors
+import com.neuronova.crucilux.ui.theme.LocalCruciluxHighContrast
 import kotlinx.coroutines.launch
 
 /**
@@ -77,6 +80,7 @@ fun GameSetupReadyScreen(
     val assignedBoard = remember(category) {
         repository.obtenerCrucigrama(category)
     }
+    val isHighContrast = LocalCruciluxHighContrast.current
 
     Column(
         modifier = modifier
@@ -131,11 +135,15 @@ fun GameSetupReadyScreen(
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-            border = CardDefaults.outlinedCardBorder().copy(
-                brush = androidx.compose.ui.graphics.SolidColor(
-                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
+            border = if (isHighContrast) {
+                BorderStroke(1.5.dp, MaterialTheme.colorScheme.outline)
+            } else {
+                CardDefaults.outlinedCardBorder().copy(
+                    brush = androidx.compose.ui.graphics.SolidColor(
+                        MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
+                    )
                 )
-            ),
+            },
         ) {
             Column(
                 modifier = Modifier.padding(20.dp),
@@ -192,7 +200,7 @@ fun GameSetupReadyScreen(
             enabled = assignedBoard != null,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(52.dp)
+                .defaultMinSize(minHeight = 52.dp)
                 .semantics {
                     contentDescription = if (assignedBoard != null) {
                         "Iniciar partida del tablero ${assignedBoard.id}"
@@ -201,6 +209,7 @@ fun GameSetupReadyScreen(
                     }
                 },
             shape = RoundedCornerShape(14.dp),
+            border = if (isHighContrast) BorderStroke(1.5.dp, MaterialTheme.colorScheme.outline) else null,
             colors = ButtonDefaults.buttonColors(
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary,
@@ -276,9 +285,10 @@ fun GameSetupReadyScreen(
             onClick = onVolver,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(52.dp)
+                .defaultMinSize(minHeight = 52.dp)
                 .semantics { contentDescription = "Volver a la configuración de partida" },
             shape = RoundedCornerShape(14.dp),
+            border = if (isHighContrast) BorderStroke(1.5.dp, MaterialTheme.colorScheme.outline) else null,
             colors = ButtonDefaults.buttonColors(
                 containerColor = MaterialTheme.colorScheme.surfaceVariant,
                 contentColor = MaterialTheme.colorScheme.onSurfaceVariant,

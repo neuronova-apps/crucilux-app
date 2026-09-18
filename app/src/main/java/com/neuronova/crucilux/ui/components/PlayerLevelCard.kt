@@ -1,5 +1,6 @@
 package com.neuronova.crucilux.ui.components
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -20,6 +21,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.neuronova.crucilux.progression.PlayerProgress
+import com.neuronova.crucilux.ui.theme.LocalCruciluxHighContrast
 
 @Composable
 fun PlayerLevelCard(
@@ -27,6 +29,7 @@ fun PlayerLevelCard(
     modifier: Modifier = Modifier,
     detailed: Boolean = false,
 ) {
+    val isHighContrast = LocalCruciluxHighContrast.current
     val targetText = progress.nextLevelXp?.let { "${progress.totalXp} / $it XP" }
         ?: "${progress.totalXp} XP · Nivel máximo"
 
@@ -36,8 +39,9 @@ fun PlayerLevelCard(
         },
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.45f),
+            containerColor = if (isHighContrast) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.45f),
         ),
+        border = if (isHighContrast) BorderStroke(1.5.dp, MaterialTheme.colorScheme.outline) else null,
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
         Column(
@@ -75,8 +79,8 @@ fun PlayerLevelCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(4.dp)),
-                color = MaterialTheme.colorScheme.tertiary,
-                trackColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.65f),
+                color = if (isHighContrast) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.tertiary,
+                trackColor = if (isHighContrast) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.surface.copy(alpha = 0.65f),
             )
             if (detailed && progress.nextLevel != null) {
                 Text(

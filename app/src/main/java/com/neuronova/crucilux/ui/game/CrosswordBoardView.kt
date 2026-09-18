@@ -150,60 +150,82 @@ private fun CrosswordCellView(
     activeDirection: CruciluxDirection,
     onCellTapped: () -> Unit,
 ) {
+    val isHighContrast = com.neuronova.crucilux.ui.theme.LocalCruciluxHighContrast.current
+    val boardColors = CruciluxThemeColors.board
+
     if (!cell.isActive) {
-        // Celda inactiva (bloque negro)
+        // Celda inactiva (bloque negro accesible en día y noche)
         Box(
             modifier = Modifier
                 .size(cellSize)
-                .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.88f))
+                .background(boardColors.blockedCellBackground)
                 .border(
-                    width = 0.5.dp,
-                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f),
+                    width = if (isHighContrast) 1.5.dp else 0.5.dp,
+                    color = boardColors.blockedCellBorder,
                 )
                 .clearAndSetSemantics { },
         )
         return
     }
 
-    // Colores y bordes según prioridad de estado:
-    // 1. isIncorrect -> Error
-    // 2. isValidated -> Verde accesible
-    // 3. isSelected -> Primario destacado
-    // 4. isInActiveWord -> Resaltado suave
-    // 5. Normal -> Superficie estándar
+    // Colores y bordes según prioridad de estado y accesibilidad:
+    // 1. isIncorrect -> Error con borde reforzado
+    // 2. isHintRevealed -> Pista asistida
+    // 3. isValidated -> Respuesta correcta / validada
+    // 4. isSelected -> Foco principal
+    // 5. isInActiveWord -> Palabra en edición
+    // 6. Normal -> Celda estándar
     val backgroundColor = when {
-        isIncorrect -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.65f)
-        isHintRevealed && isSelected -> MaterialTheme.colorScheme.tertiaryContainer
-        isHintRevealed -> MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.65f)
-        isValidated && isSelected -> CruciluxThemeColors.success.copy(alpha = 0.35f)
-        isValidated -> CruciluxThemeColors.success.copy(alpha = 0.22f)
-        isSelected -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.85f)
-        isInActiveWord -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
-        else -> MaterialTheme.colorScheme.surface
+        isIncorrect -> boardColors.incorrectCellBackground
+        isHintRevealed && isSelected -> boardColors.hintCellBackground
+        isHintRevealed -> boardColors.hintCellBackground
+        isValidated && isSelected -> boardColors.validatedCellBackground
+        isValidated -> boardColors.validatedCellBackground
+        isSelected -> boardColors.selectedCellBackground
+        isInActiveWord -> boardColors.activeWordBackground
+        else -> boardColors.cellBackground
     }
 
     val borderColor = when {
-        isIncorrect -> MaterialTheme.colorScheme.error
-        isHintRevealed -> MaterialTheme.colorScheme.tertiary
-        isSelected -> MaterialTheme.colorScheme.primary
-        isValidated -> CruciluxThemeColors.success.copy(alpha = 0.75f)
-        isInActiveWord -> MaterialTheme.colorScheme.primary.copy(alpha = 0.55f)
-        else -> MaterialTheme.colorScheme.outline.copy(alpha = 0.7f)
+        isIncorrect -> boardColors.incorrectCellBorder
+        isHintRevealed -> boardColors.hintCellBorder
+        isSelected -> boardColors.selectedCellBorder
+        isValidated -> boardColors.validatedCellBorder
+        isInActiveWord -> boardColors.activeWordBorder
+        else -> boardColors.cellBorder
     }
 
+    // Grosor de borde diferenciado (los estados no dependen únicamente del color)
     val borderWidth = when {
+        isSelected && isHighContrast -> 3.dp
         isSelected -> 2.dp
+        isIncorrect && isHighContrast -> 2.5.dp
         isIncorrect -> 1.5.dp
+        isValidated && isHighContrast -> 2.dp
         isValidated || isHintRevealed -> 1.2.dp
+        isInActiveWord && isHighContrast -> 1.5.dp
         isInActiveWord -> 1.dp
+        isHighContrast -> 1.5.dp
         else -> 0.5.dp
     }
 
     val letterColor = when {
-        isIncorrect -> MaterialTheme.colorScheme.error
-        isValidated -> MaterialTheme.colorScheme.onSurface
+        isIncorrect -> boardColors.incorrectCellBorder
+        isSelected && isHighContrast -> MaterialTheme.colorScheme.onPrimaryContainer
         isSelected -> MaterialTheme.colorScheme.onPrimaryContainer
         else -> MaterialTheme.colorScheme.onSurface
+    }
+
+    val letterWeight = when {
+        isHighContrast || isValidated || isIncorrect -> FontWeight.ExtraBold
+        isSelected -> FontWeight.Bold
+        else -> FontWeight.Bold
+    }
+
+    val clueNumberColor = when {
+        isSelected -> MaterialTheme.colorScheme.primary
+        isHighContrast -> MaterialTheme.colorScheme.onSurface
+        else -> MaterialTheme.colorScheme.onSurfaceVariant
     }
 
     val semanticDesc = buildString {
@@ -248,8 +270,8 @@ private fun CrosswordCellView(
                 text = cell.clueNumber.toString(),
                 style = TextStyle(
                     fontSize = clueNumberSp,
-                    fontWeight = FontWeight.Bold,
-                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontWeight = if (isHighContrast) FontWeight.ExtraBold else FontWeight.Bold,
+                    color = clueNumberColor,
                 ),
                 modifier = Modifier
                     .align(Alignment.TopStart)
@@ -263,7 +285,7 @@ private fun CrosswordCellView(
                 text = userLetter.toString(),
                 style = TextStyle(
                     fontSize = letterSp,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = letterWeight,
                     color = letterColor,
                     textAlign = TextAlign.Center,
                 ),
@@ -276,7 +298,7 @@ private fun CrosswordCellView(
                 style = TextStyle(
                     fontSize = clueNumberSp,
                     fontWeight = FontWeight.Black,
-                    color = MaterialTheme.colorScheme.tertiary,
+                    color = boardColors.hintCellBorder,
                 ),
                 modifier = Modifier
                     .align(Alignment.BottomEnd)

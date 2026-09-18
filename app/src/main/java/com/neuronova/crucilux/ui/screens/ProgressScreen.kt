@@ -1,4 +1,4 @@
-﻿package com.neuronova.crucilux.ui.screens
+package com.neuronova.crucilux.ui.screens
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -51,6 +51,7 @@ import com.neuronova.crucilux.data.GameConfigProvider
 import com.neuronova.crucilux.data.repository.CrosswordProgressRepository
 import com.neuronova.crucilux.data.repository.GlobalProgressStats
 import com.neuronova.crucilux.ui.theme.CruciluxThemeColors
+import com.neuronova.crucilux.ui.theme.LocalCruciluxHighContrast
 import com.neuronova.crucilux.progression.PlayerProgress
 import com.neuronova.crucilux.ui.components.PlayerLevelCard
 
@@ -174,11 +175,15 @@ fun ProgressScreen() {
             shape     = RoundedCornerShape(16.dp),
             colors    = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-            border    = CardDefaults.outlinedCardBorder().copy(
-                brush = androidx.compose.ui.graphics.SolidColor(
-                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
+            border    = if (LocalCruciluxHighContrast.current) {
+                BorderStroke(1.5.dp, MaterialTheme.colorScheme.outline)
+            } else {
+                CardDefaults.outlinedCardBorder().copy(
+                    brush = androidx.compose.ui.graphics.SolidColor(
+                        MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
+                    )
                 )
-            ),
+            },
         ) {
             Column(modifier = Modifier.padding(18.dp)) {
                 Text(
@@ -262,11 +267,15 @@ private fun MedalsSection(
         shape     = RoundedCornerShape(20.dp),
         colors    = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        border    = CardDefaults.outlinedCardBorder().copy(
-            brush = androidx.compose.ui.graphics.SolidColor(
-                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
+        border    = if (LocalCruciluxHighContrast.current) {
+            BorderStroke(1.5.dp, MaterialTheme.colorScheme.outline)
+        } else {
+            CardDefaults.outlinedCardBorder().copy(
+                brush = androidx.compose.ui.graphics.SolidColor(
+                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
+                )
             )
-        ),
+        },
     ) {
         Column(
             modifier            = Modifier.padding(18.dp),
@@ -324,6 +333,7 @@ private fun MedalCard(
     medal: MedalItem,
     modifier: Modifier = Modifier,
 ) {
+    val isHighContrast = LocalCruciluxHighContrast.current
     Surface(
         modifier = modifier
             .defaultMinSize(minHeight = 84.dp)
@@ -331,8 +341,11 @@ private fun MedalCard(
                 contentDescription = "Medalla ${medal.name}, condición futura: ${medal.condition}, próximamente disponible"
             },
         shape = RoundedCornerShape(14.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f)),
+        color = if (isHighContrast) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+        border = BorderStroke(
+            width = if (isHighContrast) 1.5.dp else 1.dp,
+            color = if (isHighContrast) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f),
+        ),
     ) {
         Column(
             modifier            = Modifier.padding(12.dp),
@@ -350,9 +363,9 @@ private fun MedalCard(
                             CircleShape,
                         )
                         .border(
-                            1.dp,
-                            MaterialTheme.colorScheme.outlineVariant,
-                            CircleShape,
+                            width = if (isHighContrast) 1.5.dp else 1.dp,
+                            color = if (isHighContrast) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.outlineVariant,
+                            shape = CircleShape,
                         ),
                     contentAlignment = Alignment.Center,
                 ) {
@@ -418,11 +431,15 @@ private fun ProgressSummaryCard(
         shape     = RoundedCornerShape(16.dp),
         colors    = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        border    = CardDefaults.outlinedCardBorder().copy(
-            brush = androidx.compose.ui.graphics.SolidColor(
-                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
+        border    = if (LocalCruciluxHighContrast.current) {
+            BorderStroke(1.5.dp, MaterialTheme.colorScheme.outline)
+        } else {
+            CardDefaults.outlinedCardBorder().copy(
+                brush = androidx.compose.ui.graphics.SolidColor(
+                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
+                )
             )
-        ),
+        },
     ) {
         Column(
             modifier            = Modifier
