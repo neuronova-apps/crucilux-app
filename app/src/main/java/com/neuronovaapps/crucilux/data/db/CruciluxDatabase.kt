@@ -11,14 +11,15 @@ import androidx.sqlite.db.SupportSQLiteDatabase
  * Base de datos local SQLite de Crucilux implementada con Room.
  */
 @Database(
-    entities = [CrosswordProgressEntity::class, PlayerProfileEntity::class],
-    version = 2,
+    entities = [CrosswordProgressEntity::class, PlayerProfileEntity::class, AchievementEntity::class],
+    version = 3,
     exportSchema = false,
 )
 abstract class CruciluxDatabase : RoomDatabase() {
 
     abstract fun progressDao(): CrosswordProgressDao
     abstract fun playerProfileDao(): PlayerProfileDao
+    abstract fun achievementDao(): AchievementDao
 
     companion object {
         private const val DATABASE_NAME = "crucilux_progress.db"
@@ -36,6 +37,21 @@ abstract class CruciluxDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS achievements (" +
+                        "achievementId TEXT NOT NULL PRIMARY KEY, " +
+                        "isUnlocked INTEGER NOT NULL DEFAULT 0, " +
+                        "unlockedAt INTEGER, " +
+                        "currentProgress INTEGER NOT NULL DEFAULT 0, " +
+                        "targetProgress INTEGER NOT NULL DEFAULT 1, " +
+                        "isNotified INTEGER NOT NULL DEFAULT 0" +
+                    ")"
+                )
+            }
+        }
+
         @Volatile
         private var instance: CruciluxDatabase? = null
 
@@ -45,7 +61,7 @@ abstract class CruciluxDatabase : RoomDatabase() {
                     context.applicationContext,
                     CruciluxDatabase::class.java,
                     DATABASE_NAME,
-                ).addMigrations(MIGRATION_1_2).build().also { instance = it }
+                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3).build().also { instance = it }
             }
         }
     }

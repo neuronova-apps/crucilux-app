@@ -73,15 +73,18 @@ fun HomeScreen(
     userName: String = "",
     onComenzar: () -> Unit,
     onContinuar: (boardId: String) -> Unit = {},
+    onOpenAchievements: () -> Unit = {},
     onOpenSettings: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val progressRepository = remember { CrosswordProgressRepository.getInstance(context) }
     val sessionManager = remember { GameSessionManager.getInstance(context) }
+    val achievementRepository = remember { com.neuronovaapps.crucilux.achievements.AchievementRepository.getInstance(context) }
 
-    // Migración legacy única si existe
+    // Migración legacy única y sincronización de logros con progreso existente
     LaunchedEffect(Unit) {
         progressRepository.migrateLegacySessionIfNeeded(sessionManager)
+        achievementRepository.evaluateAndSync()
     }
 
     // Observar partida IN_PROGRESS más reciente desde Room
@@ -93,6 +96,8 @@ fun HomeScreen(
         .collectAsState(initial = GlobalProgressStats())
     val playerProgress by progressRepository.observePlayerProgress()
         .collectAsState(initial = PlayerProgress())
+    val achievementSummary by achievementRepository.observeSummary()
+        .collectAsState(initial = com.neuronovaapps.crucilux.achievements.AchievementSummary())
 
     val hasActiveInProgress = mostRecentInProgress != null &&
         mostRecentInProgress!!.status == CrosswordBoardStatus.IN_PROGRESS.name
@@ -190,7 +195,11 @@ fun HomeScreen(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             DailyChallengeCard(Modifier.weight(1f))
-            AchievementsCard(Modifier.weight(1f))
+            AchievementsCard(
+                summary = achievementSummary,
+                onClick = onOpenAchievements,
+                modifier = Modifier.weight(1f),
+            )
         }
 
         Spacer(Modifier.height(12.dp))
@@ -501,11 +510,18 @@ private fun DailyChallengeCard(modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun AchievementsCard(modifier: Modifier = Modifier) {
+private fun AchievementsCard(
+    summary: com.neuronovaapps.crucilux.achievements.AchievementSummary,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     Card(
-        modifier  = modifier.semantics {
-            contentDescription = "Logros, próximamente disponible"
-        },
+        modifier = modifier
+            .clip(RoundedCornerShape(16.dp))
+            .clickable(role = Role.Button, onClick = onClick)
+            .semantics {
+                contentDescription = "Logros, ${summary.labelText}. Toca para abrir la pantalla de logros"
+            },
         shape     = RoundedCornerShape(16.dp),
         colors    = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface,
@@ -549,7 +565,7 @@ private fun AchievementsCard(modifier: Modifier = Modifier) {
             )
             Spacer(Modifier.height(2.dp))
             Text(
-                text  = "Próximamente",
+                text  = summary.labelText,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

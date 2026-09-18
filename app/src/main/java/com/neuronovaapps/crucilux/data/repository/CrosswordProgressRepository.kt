@@ -106,6 +106,7 @@ class CrosswordProgressRepository(
     private val bankRepository: CruciluxBankRepository = CruciluxBankRepository.getInstance(),
     private val playerProfileDao: PlayerProfileDao? = null,
     private val database: CruciluxDatabase? = null,
+    private val achievementRepository: com.neuronovaapps.crucilux.achievements.AchievementRepository? = null,
 ) {
 
     // ──────────────────────────────────────────────────────────────────────────
@@ -240,76 +241,86 @@ class CrosswordProgressRepository(
         isCompletedOverride: Boolean = false,
         awardCompletion: Boolean = false,
         xpFinal: Int = 0,
-    ): BoardCompletionResult? = inTransaction {
-        val existing = dao.getProgress(boardId)
-        val alreadyCompleted = existing?.status == CrosswordBoardStatus.COMPLETED.name
+    ): BoardCompletionResult? {
+        val result = inTransaction {
+            val existing = dao.getProgress(boardId)
+            val alreadyCompleted = existing?.status == CrosswordBoardStatus.COMPLETED.name
 
-        val (status, percent) = when {
-            isCompletedOverride || alreadyCompleted -> {
-                Pair(CrosswordBoardStatus.COMPLETED, 100)
-            }
-            grid != null -> {
-                calculateProgress(grid, userLetters, isCompleted = false)
-            }
-            userLetters.isNotEmpty() || existing?.status == CrosswordBoardStatus.IN_PROGRESS.name -> {
-                Pair(CrosswordBoardStatus.IN_PROGRESS, existing?.progressPercent ?: 1)
-            }
-            else -> {
-                Pair(CrosswordBoardStatus.NOT_STARTED, 0)
-            }
-        }
-
-        // Si ya estaba completado, nunca degradar a IN_PROGRESS
-        val finalStatus = if (alreadyCompleted) CrosswordBoardStatus.COMPLETED else status
-        val finalPercent = if (alreadyCompleted) 100 else percent
-
-        val existingLetters = existing?.userLetters.orEmpty()
-        val serializedLetters = if (alreadyCompleted && existingLetters.isNotBlank()) {
-            existingLetters
-        } else {
-            GameSessionManager.serializeLetters(userLetters)
-        }
-
-        val entity = CrosswordProgressEntity(
-            boardId = boardId,
-            category = category,
-            status = finalStatus.name,
-            progressPercent = finalPercent,
-            userLetters = serializedLetters,
-            selectedRow = selectedRow,
-            selectedCol = selectedCol,
-            selectedDirection = if (selectedDirection == CruciluxDirection.VERTICAL) "V" else "H",
-            checkMode = if (checkMode == CheckMode.ASSISTED) "ASSISTED" else "CLASSIC",
-            hintsUsed = hintsUsed.coerceAtLeast(existing?.hintsUsed ?: 0),
-            bestXpEarned = existing?.bestXpEarned ?: 0,
-            hintRevealedCells = CrosswordProgressEntity.serializePositions(
-                hintRevealedCells.ifEmpty { existing?.parseHintRevealedCells().orEmpty() }
-            ),
-            updatedAt = System.currentTimeMillis(),
-        )
-
-        if (awardCompletion && finalStatus == CrosswordBoardStatus.COMPLETED) {
-            val previousBest = existing?.bestXpEarned ?: 0
-            val normalizedFinal = xpFinal.coerceAtLeast(0)
-            val newBest = maxOf(previousBest, normalizedFinal)
-            val delta = (newBest - previousBest).coerceAtLeast(0)
-            dao.insertOrUpdate(entity.copy(bestXpEarned = newBest))
-
-            if (delta > 0 && playerProfileDao != null) {
-                val profile = playerProfileDao.getProfile() ?: PlayerProfileEntity()
-                playerProfileDao.insertOrUpdate(profile.copy(totalXp = profile.totalXp + delta))
+            val (status, percent) = when {
+                isCompletedOverride || alreadyCompleted -> {
+                    Pair(CrosswordBoardStatus.COMPLETED, 100)
+                }
+                grid != null -> {
+                    calculateProgress(grid, userLetters, isCompleted = false)
+                }
+                userLetters.isNotEmpty() || existing?.status == CrosswordBoardStatus.IN_PROGRESS.name -> {
+                    Pair(CrosswordBoardStatus.IN_PROGRESS, existing?.progressPercent ?: 1)
+                }
+                else -> {
+                    Pair(CrosswordBoardStatus.NOT_STARTED, 0)
+                }
             }
 
-            BoardCompletionResult(
-                xpFinal = normalizedFinal,
-                xpAwarded = delta,
-                previousBestXp = previousBest,
-                bestXpEarned = newBest,
+            // Si ya estaba completado, nunca degradar a IN_PROGRESS
+            val finalStatus = if (alreadyCompleted) CrosswordBoardStatus.COMPLETED else status
+            val finalPercent = if (alreadyCompleted) 100 else percent
+
+            val existingLetters = existing?.userLetters.orEmpty()
+            val serializedLetters = if (alreadyCompleted && existingLetters.isNotBlank()) {
+                existingLetters
+            } else {
+                GameSessionManager.serializeLetters(userLetters)
+            }
+
+            val entity = CrosswordProgressEntity(
+                boardId = boardId,
+                category = category,
+                status = finalStatus.name,
+                progressPercent = finalPercent,
+                userLetters = serializedLetters,
+                selectedRow = selectedRow,
+                selectedCol = selectedCol,
+                selectedDirection = if (selectedDirection == CruciluxDirection.VERTICAL) "V" else "H",
+                checkMode = if (checkMode == CheckMode.ASSISTED) "ASSISTED" else "CLASSIC",
+                hintsUsed = hintsUsed.coerceAtLeast(existing?.hintsUsed ?: 0),
+                bestXpEarned = existing?.bestXpEarned ?: 0,
+                hintRevealedCells = CrosswordProgressEntity.serializePositions(
+                    hintRevealedCells.ifEmpty { existing?.parseHintRevealedCells().orEmpty() }
+                ),
+                updatedAt = System.currentTimeMillis(),
             )
-        } else {
-            dao.insertOrUpdate(entity)
-            null
+
+            if (awardCompletion && finalStatus == CrosswordBoardStatus.COMPLETED) {
+                val previousBest = existing?.bestXpEarned ?: 0
+                val normalizedFinal = xpFinal.coerceAtLeast(0)
+                val newBest = maxOf(previousBest, normalizedFinal)
+                val delta = (newBest - previousBest).coerceAtLeast(0)
+                dao.insertOrUpdate(entity.copy(bestXpEarned = newBest))
+
+                if (delta > 0 && playerProfileDao != null) {
+                    val profile = playerProfileDao.getProfile() ?: PlayerProfileEntity()
+                    playerProfileDao.insertOrUpdate(profile.copy(totalXp = profile.totalXp + delta))
+                }
+
+                BoardCompletionResult(
+                    xpFinal = normalizedFinal,
+                    xpAwarded = delta,
+                    previousBestXp = previousBest,
+                    bestXpEarned = newBest,
+                )
+            } else {
+                dao.insertOrUpdate(entity)
+                null
+            }
         }
+
+        try {
+            achievementRepository?.evaluateAndSync()
+        } catch (exception: Exception) {
+            Log.w(TAG, "Error sincronizando logros en saveProgress", exception)
+        }
+
+        return result
     }
 
     /** Persiste el modo elegido y marca el tablero como iniciado aun con cero letras. */
@@ -351,6 +362,11 @@ class CrosswordProgressRepository(
             updatedAt = System.currentTimeMillis(),
         )
         dao.insertOrUpdate(entity)
+        try {
+            achievementRepository?.evaluateAndSync()
+        } catch (exception: Exception) {
+            Log.w(TAG, "Error sincronizando logros en resetBoardProgress", exception)
+        }
     }
 
     // ──────────────────────────────────────────────────────────────────────────
@@ -478,6 +494,7 @@ class CrosswordProgressRepository(
                         bankRepository = CruciluxBankRepository.getInstance(),
                         playerProfileDao = db.playerProfileDao(),
                         database = db,
+                        achievementRepository = com.neuronovaapps.crucilux.achievements.AchievementRepository.getInstance(context),
                     ).also { instance = it }
                 }
             }

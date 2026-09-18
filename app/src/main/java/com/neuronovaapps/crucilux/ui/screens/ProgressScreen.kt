@@ -3,6 +3,8 @@ package com.neuronovaapps.crucilux.ui.screens
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -32,6 +34,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -55,53 +58,31 @@ import com.neuronovaapps.crucilux.ui.theme.LocalCruciluxHighContrast
 import com.neuronovaapps.crucilux.progression.PlayerProgress
 import com.neuronovaapps.crucilux.ui.components.PlayerLevelCard
 
-private data class MedalItem(
-    val id: String,
-    val name: String,
-    val condition: String,
-    val initialLetter: String,
-    val isUnlocked: Boolean = false,
-)
-
-private val medalsList = listOf(
-    MedalItem(
-        id = "first_crossword",
-        name = "Primer Crucigrama",
-        condition = "Completa tu primer crucigrama",
-        initialLetter = "P",
-        isUnlocked = false,
-    ),
-    MedalItem(
-        id = "word_master",
-        name = "Vocabulario de Oro",
-        condition = "Encuentra 50 palabras correctas",
-        initialLetter = "V",
-        isUnlocked = false,
-    ),
-    MedalItem(
-        id = "grand_grid",
-        name = "Gran Tablero",
-        condition = "Resuelve un crucigrama de 15×15",
-        initialLetter = "G",
-        isUnlocked = false,
-    ),
-    MedalItem(
-        id = "master_solver",
-        name = "Maestro de Letras",
-        condition = "Completa 30 crucigramas",
-        initialLetter = "L",
-        isUnlocked = false,
-    ),
-)
+import com.neuronovaapps.crucilux.achievements.AchievementRepository
+import com.neuronovaapps.crucilux.achievements.AchievementState
+import com.neuronovaapps.crucilux.achievements.AchievementSummary
+import com.neuronovaapps.crucilux.achievements.CruciluxAchievements
 
 @Composable
-fun ProgressScreen() {
+fun ProgressScreen(
+    onOpenAchievements: (() -> Unit)? = null,
+) {
     val context = LocalContext.current
     val progressRepository = remember { CrosswordProgressRepository.getInstance(context) }
+    val achievementRepository = remember { AchievementRepository.getInstance(context) }
+
+    LaunchedEffect(Unit) {
+        achievementRepository.evaluateAndSync()
+    }
+
     val globalStats by progressRepository.observeGlobalStats()
         .collectAsState(initial = GlobalProgressStats())
     val playerProgress by progressRepository.observePlayerProgress()
         .collectAsState(initial = PlayerProgress())
+    val achievements by achievementRepository.observeAchievements()
+        .collectAsState(initial = CruciluxAchievements.ALL.map { AchievementState(it) })
+    val achievementSummary by achievementRepository.observeSummary()
+        .collectAsState(initial = AchievementSummary())
     val categories = GameConfigProvider.categories
 
     Column(
@@ -243,7 +224,9 @@ fun ProgressScreen() {
 
         // Sección destacada de Medallas y Logros
         MedalsSection(
-            medals   = medalsList,
+            medals = achievements,
+            summary = achievementSummary,
+            onOpenAchievements = onOpenAchievements,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp),
@@ -259,15 +242,24 @@ fun ProgressScreen() {
 
 @Composable
 private fun MedalsSection(
-    medals: List<MedalItem>,
+    medals: List<AchievementState>,
+    summary: AchievementSummary,
+    onOpenAchievements: (() -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
     Card(
-        modifier  = modifier,
-        shape     = RoundedCornerShape(20.dp),
-        colors    = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        modifier = modifier
+            .then(
+                if (onOpenAchievements != null) {
+                    Modifier
+                        .clip(RoundedCornerShape(20.dp))
+                        .clickable(role = Role.Button, onClick = onOpenAchievements)
+                } else Modifier
+            ),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        border    = if (LocalCruciluxHighContrast.current) {
+        border = if (LocalCruciluxHighContrast.current) {
             BorderStroke(1.5.dp, MaterialTheme.colorScheme.outline)
         } else {
             CardDefaults.outlinedCardBorder().copy(
@@ -278,46 +270,50 @@ private fun MedalsSection(
         },
     ) {
         Column(
-            modifier            = Modifier.padding(18.dp),
+            modifier = Modifier.padding(18.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Row(
-                modifier              = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment     = Alignment.CenterVertically,
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 Row(
-                    verticalAlignment     = Alignment.CenterVertically,
+                    verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     Icon(
-                        imageVector        = Icons.Default.EmojiEvents,
+                        imageVector = Icons.Default.EmojiEvents,
                         contentDescription = null,
-                        tint               = MaterialTheme.colorScheme.primary,
-                        modifier           = Modifier.size(20.dp),
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp),
                     )
                     Text(
-                        text       = "Medallas (próximamente)",
-                        style      = MaterialTheme.typography.titleMedium,
+                        text = "Medallas y Logros",
+                        style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color      = MaterialTheme.colorScheme.onSurface,
+                        color = MaterialTheme.colorScheme.onSurface,
                     )
                 }
                 Text(
-                    text       = "En preparación",
-                    style      = MaterialTheme.typography.labelMedium,
+                    text = "${summary.unlockedCount} de ${summary.totalCount}",
+                    style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.SemiBold,
-                    color      = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = if (summary.unlockedCount > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
 
             medals.chunked(2).forEach { rowMedals ->
                 Row(
-                    modifier              = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     rowMedals.forEach { medal ->
-                        MedalCard(medal = medal, modifier = Modifier.weight(1f))
+                        MedalCard(
+                            achievement = medal,
+                            onClick = onOpenAchievements,
+                            modifier = Modifier.weight(1f),
+                        )
                     }
                     if (rowMedals.size == 1) {
                         Spacer(Modifier.weight(1f))
@@ -330,84 +326,105 @@ private fun MedalsSection(
 
 @Composable
 private fun MedalCard(
-    medal: MedalItem,
+    achievement: AchievementState,
+    onClick: (() -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
     val isHighContrast = LocalCruciluxHighContrast.current
+    val isUnlocked = achievement.isUnlocked
+
     Surface(
         modifier = modifier
             .defaultMinSize(minHeight = 84.dp)
-            .semantics {
-                contentDescription = "Medalla ${medal.name}, condición futura: ${medal.condition}, próximamente disponible"
+            .then(
+                if (onClick != null) {
+                    Modifier
+                        .clip(RoundedCornerShape(14.dp))
+                        .clickable(role = Role.Button, onClick = onClick)
+                } else Modifier
+            )
+            .semantics(mergeDescendants = true) {
+                contentDescription = achievement.contentDescription
             },
         shape = RoundedCornerShape(14.dp),
-        color = if (isHighContrast) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+        color = when {
+            isHighContrast -> MaterialTheme.colorScheme.surface
+            isUnlocked -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
+            else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
+        },
         border = BorderStroke(
             width = if (isHighContrast) 1.5.dp else 1.dp,
-            color = if (isHighContrast) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f),
+            color = when {
+                isHighContrast -> MaterialTheme.colorScheme.outline
+                isUnlocked -> MaterialTheme.colorScheme.primary.copy(alpha = 0.55f)
+                else -> MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f)
+            },
         ),
     ) {
         Column(
-            modifier            = Modifier.padding(12.dp),
+            modifier = Modifier.padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             Row(
-                verticalAlignment     = Alignment.CenterVertically,
+                verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Box(
                     modifier = Modifier
                         .size(32.dp)
                         .background(
-                            MaterialTheme.colorScheme.surfaceVariant,
+                            if (isUnlocked) MaterialTheme.colorScheme.primaryContainer
+                            else MaterialTheme.colorScheme.surfaceVariant,
                             CircleShape,
                         )
                         .border(
                             width = if (isHighContrast) 1.5.dp else 1.dp,
-                            color = if (isHighContrast) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.outlineVariant,
+                            color = if (isUnlocked) MaterialTheme.colorScheme.primary
+                            else if (isHighContrast) MaterialTheme.colorScheme.outline
+                            else MaterialTheme.colorScheme.outlineVariant,
                             shape = CircleShape,
                         ),
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
-                        text       = medal.initialLetter,
-                        color      = MaterialTheme.colorScheme.onSurfaceVariant,
+                        text = achievement.initialLetter,
+                        color = if (isUnlocked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                         fontWeight = FontWeight.Black,
-                        fontSize   = 13.sp,
+                        fontSize = 13.sp,
                     )
                 }
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text       = medal.name,
-                        style      = MaterialTheme.typography.labelLarge,
+                        text = achievement.name,
+                        style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.Bold,
-                        color      = MaterialTheme.colorScheme.onSurface,
-                        maxLines   = 1,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
                     )
                     Row(
-                        verticalAlignment     = Alignment.CenterVertically,
+                        verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(3.dp),
                     ) {
                         Icon(
-                            imageVector        = Icons.Default.Lock,
+                            imageVector = if (isUnlocked) Icons.Default.EmojiEvents else Icons.Default.Lock,
                             contentDescription = null,
-                            tint               = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier           = Modifier.size(11.dp),
+                            tint = if (isUnlocked) CruciluxThemeColors.success else MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(11.dp),
                         )
                         Text(
-                            text       = if (medal.isUnlocked) "Desbloqueado" else "Próximamente",
-                            style      = MaterialTheme.typography.labelSmall,
+                            text = if (isUnlocked) "Desbloqueado" else "${achievement.currentProgress}/${achievement.targetProgress}",
+                            style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.SemiBold,
-                            color      = if (medal.isUnlocked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = if (isUnlocked) CruciluxThemeColors.success else MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                 }
             }
             Text(
-                text       = medal.condition,
-                style      = MaterialTheme.typography.bodySmall,
-                color      = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontSize   = 11.sp,
+                text = achievement.description,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 11.sp,
                 lineHeight = 14.sp,
             )
         }
