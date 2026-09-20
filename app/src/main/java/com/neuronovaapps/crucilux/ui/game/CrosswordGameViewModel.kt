@@ -23,6 +23,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.sync.Mutex
@@ -76,6 +78,9 @@ data class CrosswordGameState(
     val isSessionSaved: Boolean = false,
     val progressPercent: Int = 0,
     val nextBoardId: String? = null,
+    val dailyDateKey: String? = null,
+    val elapsedTimeSeconds: Long = 0L,
+    val bestTimeSeconds: Long? = null,
 )
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -88,26 +93,53 @@ data class CrosswordGameState(
 class CrosswordGameViewModel(
     private val progressRepository: CrosswordProgressRepository? = null,
     private val sessionManager: GameSessionManager? = null,
+    private val dailyChallengeRepository: com.neuronovaapps.crucilux.data.daily.DailyChallengeRepository? = null,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(CrosswordGameState())
     val state: StateFlow<CrosswordGameState> = _state.asStateFlow()
     private val saveMutex = Mutex()
+    private var timerJob: Job? = null
+
+    /** Inicia el cronómetro funcional desde un tiempo base acumulado en segundos. */
+    fun startTimer(initialSeconds: Long) {
+        timerJob?.cancel()
+        _state.value = _state.value.copy(elapsedTimeSeconds = initialSeconds)
+        timerJob = viewModelScope.launch(Dispatchers.Default) {
+            while (isActive) {
+                delay(1000L)
+                val current = _state.value
+                if (current.isCompleted) break
+                _state.value = current.copy(elapsedTimeSeconds = current.elapsedTimeSeconds + 1)
+            }
+        }
+    }
+
+    /** Detiene el cronómetro inmediatamente. */
+    fun stopTimer() {
+        timerJob?.cancel()
+        timerJob = null
+    }
+
+    override fun onCleared() {
+        stopTimer()
+    }
 
     companion object {
         private const val TAG = "CrosswordGameViewModel"
 
         /**
-         * Factory que inyecta [CrosswordProgressRepository] y opcionalmente [GameSessionManager].
+         * Factory que inyecta [CrosswordProgressRepository] y opcionalmente [GameSessionManager] y [DailyChallengeRepository].
          */
         fun factory(
             progressRepository: CrosswordProgressRepository,
             sessionManager: GameSessionManager? = null,
+            dailyChallengeRepository: com.neuronovaapps.crucilux.data.daily.DailyChallengeRepository? = null,
         ): ViewModelProvider.Factory {
             return object : ViewModelProvider.Factory {
                 override fun <T : ViewModel> create(modelClass: Class<T>): T {
                     @Suppress("UNCHECKED_CAST")
-                    return CrosswordGameViewModel(progressRepository, sessionManager) as T
+                    return CrosswordGameViewModel(progressRepository, sessionManager, dailyChallengeRepository) as T
                 }
             }
         }
@@ -118,19 +150,20 @@ class CrosswordGameViewModel(
     // ──────────────────────────────────────────────────────────────────────────
 
     /**
-     * Carga el tablero por su ID y restaura la sesión guardada desde Room.
+     * Carga el tablero por su ID y restaura la sesión guardada desde Room o la sesión aislada diaria.
      */
-    fun loadBoard(boardId: String) {
+    fun loadBoard(boardId: String, dailyDateKey: String? = null) {
         val current = _state.value
-        if (!current.isLoading && current.board?.id == boardId && current.grid != null) return
+        if (!current.isLoading && current.board?.id == boardId && current.grid != null && current.dailyDateKey == dailyDateKey) return
 
         viewModelScope.launch(Dispatchers.Default) {
-            _state.value = CrosswordGameState(isLoading = true)
+            _state.value = CrosswordGameState(isLoading = true, dailyDateKey = dailyDateKey)
             try {
                 val repository = CruciluxBankRepository.getInstance()
                 if (!repository.awaitReady()) {
                     _state.value = CrosswordGameState(
                         isLoading = false,
+                        dailyDateKey = dailyDateKey,
                         errorMessage = "No se pudo cargar el banco de crucigramas. Reinicia la aplicación.",
                     )
                     return@launch
@@ -140,6 +173,7 @@ class CrosswordGameViewModel(
                 if (board == null) {
                     _state.value = CrosswordGameState(
                         isLoading = false,
+                        dailyDateKey = dailyDateKey,
                         errorMessage = "No se encontró el tablero: $boardId",
                     )
                     return@launch
@@ -147,7 +181,124 @@ class CrosswordGameViewModel(
 
                 val grid = CruciluxGridEngine.buildGrid(board)
 
-                // 1. Intentar restaurar desde Room Repository
+                // 0. Si se juega en modo Desafío Diario, consultar primero la sesión aislada del día
+                val dailyChallenge = if (dailyDateKey != null && dailyChallengeRepository != null) {
+                    try {
+                        dailyChallengeRepository.getTodayChallenge()
+                    } catch (e: Exception) {
+                        Log.w(TAG, "No se pudo consultar el desafío diario para $dailyDateKey", e)
+                        null
+                    }
+                } else null
+
+                val isDailySession = dailyDateKey != null && dailyChallenge != null && dailyChallenge.dateKey == dailyDateKey
+
+                if (isDailySession) {
+                    val currentChallenge = dailyChallenge ?: return@launch
+                    val isDailyCompleted = currentChallenge.isCompleted
+                    val hasDailyLetters = currentChallenge.userLetters.isNotEmpty()
+
+                    if (isDailyCompleted) {
+                        val userLetters = dailyChallenge.userLetters
+                        val valBankIds = board.entries.map { it.bankId }.toSet()
+                        val valCells = grid.cells.flatten().filter { it.isActive }.map { Pair(it.row, it.col) }.toSet()
+                        val (entryId, cells) = computeActiveWord(grid, dailyChallenge.selectedRow, dailyChallenge.selectedCol, dailyChallenge.selectedDirection)
+
+                        _state.value = CrosswordGameState(
+                            isLoading = false,
+                            board = board,
+                            grid = grid,
+                            selectedRow = dailyChallenge.selectedRow,
+                            selectedCol = dailyChallenge.selectedCol,
+                            activeDirection = dailyChallenge.selectedDirection,
+                            activeEntryBankId = entryId,
+                            activeCellsInWord = cells,
+                            userLetters = userLetters,
+                            checkMode = dailyChallenge.checkMode,
+                            hintsUsed = dailyChallenge.hintsUsed,
+                            hintRevealedCells = dailyChallenge.hintRevealedCells,
+                            xpPossible = XpCalculator.finalXp(board.entries.size, dailyChallenge.checkMode, dailyChallenge.hintsUsed),
+                            bestXpEarned = 0,
+                            validatedEntryBankIds = valBankIds,
+                            validatedCells = valCells,
+                            isCompleted = true,
+                            isReviewMode = true,
+                            isSessionSaved = true,
+                            progressPercent = 100,
+                            dailyDateKey = dailyDateKey,
+                            elapsedTimeSeconds = dailyChallenge.elapsedTimeSeconds,
+                            bestTimeSeconds = dailyChallenge.bestTimeSeconds,
+                        )
+                        stopTimer()
+                        return@launch
+                    } else if (hasDailyLetters) {
+                        val userLetters = dailyChallenge.userLetters
+                        val (valBankIds, valCells) = computeValidatedState(grid, board, userLetters)
+                        val isComp = valBankIds.size == board.entries.size && board.entries.isNotEmpty()
+                        val (entryId, cells) = computeActiveWord(grid, dailyChallenge.selectedRow, dailyChallenge.selectedCol, dailyChallenge.selectedDirection)
+
+                        _state.value = CrosswordGameState(
+                            isLoading = false,
+                            board = board,
+                            grid = grid,
+                            selectedRow = dailyChallenge.selectedRow,
+                            selectedCol = dailyChallenge.selectedCol,
+                            activeDirection = dailyChallenge.selectedDirection,
+                            activeEntryBankId = entryId,
+                            activeCellsInWord = cells,
+                            userLetters = userLetters,
+                            checkMode = dailyChallenge.checkMode,
+                            hintsUsed = dailyChallenge.hintsUsed,
+                            hintRevealedCells = dailyChallenge.hintRevealedCells,
+                            xpPossible = XpCalculator.finalXp(board.entries.size, dailyChallenge.checkMode, dailyChallenge.hintsUsed),
+                            bestXpEarned = 0,
+                            validatedEntryBankIds = valBankIds,
+                            validatedCells = valCells,
+                            isCompleted = isComp,
+                            isReviewMode = false,
+                            isSessionSaved = true,
+                            progressPercent = dailyChallenge.progressPercent,
+                            dailyDateKey = dailyDateKey,
+                            elapsedTimeSeconds = dailyChallenge.elapsedTimeSeconds,
+                            bestTimeSeconds = dailyChallenge.bestTimeSeconds,
+                        )
+                        if (isComp) {
+                            stopTimer()
+                        } else {
+                            startTimer(dailyChallenge.elapsedTimeSeconds)
+                        }
+                        return@launch
+                    } else {
+                        // Desafío diario nuevo para hoy: iniciar desde cero
+                        dailyChallengeRepository?.startTodayChallenge()
+                        val allClues = getAllCluesOrdered(grid)
+                        val firstClue = allClues.firstOrNull()
+                        val startRow = firstClue?.startRow ?: 0
+                        val startCol = firstClue?.startCol ?: 0
+                        val startDir = firstClue?.direction ?: CruciluxDirection.HORIZONTAL
+                        val (entryId, cells) = computeActiveWord(grid, startRow, startCol, startDir)
+
+                        _state.value = CrosswordGameState(
+                            isLoading = false,
+                            board = board,
+                            grid = grid,
+                            selectedRow = startRow,
+                            selectedCol = startCol,
+                            activeDirection = startDir,
+                            activeEntryBankId = entryId,
+                            activeCellsInWord = cells,
+                            progressPercent = 0,
+                            xpPossible = XpCalculator.finalXp(board.entries.size, CheckMode.CLASSIC, 0),
+                            dailyDateKey = dailyDateKey,
+                            elapsedTimeSeconds = 0L,
+                            bestTimeSeconds = dailyChallenge.bestTimeSeconds,
+                        )
+                        startTimer(0L)
+                        return@launch
+                    }
+                }
+
+                // 1. Intentar restaurar desde Room Repository (modo juego estándar)
                 val savedProgress = if (progressRepository != null) {
                     try {
                         progressRepository.getProgress(boardId)
@@ -447,6 +598,7 @@ class CrosswordGameViewModel(
         )
 
         if (isAllCompleted) {
+            stopTimer()
             findNextBoard(board.category, board.id)
         }
 
@@ -574,13 +726,17 @@ class CrosswordGameViewModel(
             isReviewMode = false,
         )
 
-        if (completed) findNextBoard(board.category, board.id)
+        if (completed) {
+            stopTimer()
+            findNextBoard(board.category, board.id)
+        }
         triggerAutosave()
         return true
     }
 
     fun resetBoardAfterConfirmation(onReset: () -> Unit = {}) {
         val board = _state.value.board ?: return
+        stopTimer()
 
         viewModelScope.launch(Dispatchers.IO) {
             try {
@@ -755,45 +911,70 @@ class CrosswordGameViewModel(
                     val latestBoard = latest.board ?: return@withLock
                     if (latestBoard.id != board.id) return@withLock
                     val shouldAwardCompletion = latest.isCompleted && !latest.isReviewMode
+                    val isDaily = latest.dailyDateKey != null && dailyChallengeRepository != null
 
-                    val completionResult = progressRepository?.saveProgress(
-                        boardId = latestBoard.id,
-                        category = latestBoard.category,
-                        userLetters = latest.userLetters,
-                        grid = latest.grid,
-                        selectedRow = latest.selectedRow,
-                        selectedCol = latest.selectedCol,
-                        selectedDirection = latest.activeDirection,
-                        checkMode = latest.checkMode,
-                        hintsUsed = latest.hintsUsed,
-                        hintRevealedCells = latest.hintRevealedCells,
-                        isCompletedOverride = latest.isCompleted,
-                        awardCompletion = shouldAwardCompletion,
-                        xpFinal = latest.xpPossible,
-                    )
-
-                    if (completionResult != null) {
-                        _state.value = _state.value.copy(
-                            completionResult = completionResult,
-                            bestXpEarned = completionResult.bestXpEarned,
-                            saveErrorMessage = null,
-                        )
+                    if (isDaily) {
+                        try {
+                            dailyChallengeRepository?.saveDailyProgress(
+                                dateKey = latest.dailyDateKey!!,
+                                userLetters = latest.userLetters,
+                                grid = latest.grid,
+                                selectedRow = latest.selectedRow,
+                                selectedCol = latest.selectedCol,
+                                selectedDirection = latest.activeDirection,
+                                checkMode = latest.checkMode,
+                                hintsUsed = latest.hintsUsed,
+                                hintRevealedCells = latest.hintRevealedCells,
+                                isCompletedOverride = latest.isCompleted,
+                                elapsedTimeSeconds = latest.elapsedTimeSeconds,
+                            )
+                        } catch (e: Exception) {
+                            Log.w(TAG, "Error autoguardando sesión diaria para ${latest.dailyDateKey}", e)
+                        }
                     }
 
-                    sessionManager?.saveSession(
-                        GameSessionState(
+                    if (shouldAwardCompletion || !isDaily) {
+                        val completionResult = progressRepository?.saveProgress(
                             boardId = latestBoard.id,
                             category = latestBoard.category,
-                            boardSize = latestBoard.size,
+                            userLetters = latest.userLetters,
+                            grid = latest.grid,
                             selectedRow = latest.selectedRow,
                             selectedCol = latest.selectedCol,
-                            activeDirection = if (latest.activeDirection == CruciluxDirection.VERTICAL) "V" else "H",
-                            checkMode = if (latest.checkMode == CheckMode.ASSISTED) "ASSISTED" else "CLASSIC",
-                            userLetters = latest.userLetters,
-                            isFinished = latest.isCompleted,
-                            lastUpdatedMs = System.currentTimeMillis(),
+                            selectedDirection = latest.activeDirection,
+                            checkMode = latest.checkMode,
+                            hintsUsed = latest.hintsUsed,
+                            hintRevealedCells = latest.hintRevealedCells,
+                            isCompletedOverride = latest.isCompleted,
+                            awardCompletion = shouldAwardCompletion,
+                            xpFinal = latest.xpPossible,
                         )
-                    )
+
+                        if (completionResult != null) {
+                            _state.value = _state.value.copy(
+                                completionResult = completionResult,
+                                bestXpEarned = completionResult.bestXpEarned,
+                                saveErrorMessage = null,
+                            )
+                        }
+                    }
+
+                    if (!isDaily) {
+                        sessionManager?.saveSession(
+                            GameSessionState(
+                                boardId = latestBoard.id,
+                                category = latestBoard.category,
+                                boardSize = latestBoard.size,
+                                selectedRow = latest.selectedRow,
+                                selectedCol = latest.selectedCol,
+                                activeDirection = if (latest.activeDirection == CruciluxDirection.VERTICAL) "V" else "H",
+                                checkMode = if (latest.checkMode == CheckMode.ASSISTED) "ASSISTED" else "CLASSIC",
+                                userLetters = latest.userLetters,
+                                isFinished = latest.isCompleted,
+                                lastUpdatedMs = System.currentTimeMillis(),
+                            )
+                        )
+                    }
                 }
             } catch (exception: Exception) {
                 Log.e(TAG, "No se pudo autoguardar el tablero ${board.id}", exception)

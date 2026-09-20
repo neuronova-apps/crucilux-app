@@ -81,20 +81,22 @@ fun CrosswordGameScreen(
     onVolver: () -> Unit,
     modifier: Modifier = Modifier,
     onNavigateToNextBoard: (nextBoardId: String) -> Unit = {},
+    dailyDateKey: String? = null,
 ) {
     val context = LocalContext.current
     val progressRepository = remember { CrosswordProgressRepository.getInstance(context) }
     val sessionManager = remember { GameSessionManager.getInstance(context) }
+    val dailyChallengeRepository = remember { com.neuronovaapps.crucilux.data.daily.DailyChallengeRepository.getInstance(context) }
     val coroutineScope = rememberCoroutineScope()
     var showAdditionalHintDialog by remember { mutableStateOf(false) }
     var showResetDialog by remember { mutableStateOf(false) }
     var pendingNextBoardId by remember { mutableStateOf<String?>(null) }
     val viewModel: CrosswordGameViewModel = viewModel(
-        factory = CrosswordGameViewModel.factory(progressRepository, sessionManager)
+        factory = CrosswordGameViewModel.factory(progressRepository, sessionManager, dailyChallengeRepository)
     )
 
-    LaunchedEffect(boardId) {
-        viewModel.loadBoard(boardId)
+    LaunchedEffect(boardId, dailyDateKey) {
+        viewModel.loadBoard(boardId, dailyDateKey)
     }
 
     val state by viewModel.state.collectAsState()
@@ -111,6 +113,8 @@ fun CrosswordGameScreen(
             hintsUsed = state.hintsUsed,
             xpPossible = state.xpPossible,
             hintEnabled = !state.isCompleted && viewModel.canUseHint(),
+            elapsedTimeSeconds = state.elapsedTimeSeconds,
+            isDaily = state.dailyDateKey != null,
             onHint = {
                 if (HintRules.requiresAdditionalConfirmation(state.hintsUsed)) showAdditionalHintDialog = true
                 else viewModel.useHint()
@@ -212,6 +216,7 @@ fun CrosswordGameScreen(
     // ── Diálogo de felicitación al completar el tablero ──────────────────────
     if (state.isCompleted) {
         CompletionDialog(
+            isDaily = dailyDateKey != null,
             totalEntries = state.board?.entries?.size ?: 0,
             nextBoardId = state.nextBoardId,
             completionResult = state.completionResult,
@@ -305,6 +310,8 @@ private fun GameHeader(
     hintsUsed: Int,
     xpPossible: Int,
     hintEnabled: Boolean,
+    elapsedTimeSeconds: Long = 0L,
+    isDaily: Boolean = false,
     onHint: () -> Unit,
     onVolver: () -> Unit,
 ) {
@@ -335,6 +342,29 @@ private fun GameHeader(
                 color = MaterialTheme.colorScheme.onBackground,
                 modifier = Modifier.weight(1f),
             )
+
+            if (isDaily || elapsedTimeSeconds > 0L) {
+                val minutes = elapsedTimeSeconds / 60
+                val seconds = elapsedTimeSeconds % 60
+                val mm = minutes.toString().padStart(2, '0')
+                val ss = seconds.toString().padStart(2, '0')
+                val timeFormatted = "$mm:$ss"
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f),
+                    modifier = Modifier.padding(end = 8.dp),
+                ) {
+                    Text(
+                        text = "⏱ $timeFormatted",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                        modifier = Modifier
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                            .semantics { contentDescription = "Tiempo transcurrido: $minutes minutos y $seconds segundos" },
+                    )
+                }
+            }
 
             Text(
                 text = if (checkMode == CheckMode.CLASSIC) "Clásica" else "Asistida",
@@ -531,6 +561,7 @@ private fun ActiveClueNavigationCard(
  */
 @Composable
 private fun CompletionDialog(
+    isDaily: Boolean = false,
     totalEntries: Int,
     nextBoardId: String?,
     completionResult: com.neuronovaapps.crucilux.data.repository.BoardCompletionResult?,
@@ -550,7 +581,7 @@ private fun CompletionDialog(
         onDismissRequest = { /* Modal permanente */ },
         icon = {
             Icon(
-                imageVector = if (isCategoryFinished) Icons.Default.EmojiEvents else Icons.Default.CheckCircle,
+                imageVector = if (isDaily || isCategoryFinished) Icons.Default.EmojiEvents else Icons.Default.CheckCircle,
                 contentDescription = null,
                 tint = CruciluxThemeColors.success,
                 modifier = Modifier.size(48.dp),
@@ -558,7 +589,11 @@ private fun CompletionDialog(
         },
         title = {
             Text(
-                text = if (isCategoryFinished) "¡Categoría completada!" else "¡Crucigrama completado!",
+                text = when {
+                    isDaily -> "¡Desafío diario completado!"
+                    isCategoryFinished -> "¡Categoría completada!"
+                    else -> "¡Crucigrama completado!"
+                },
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center,
@@ -571,10 +606,10 @@ private fun CompletionDialog(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Text(
-                    text = if (isCategoryFinished) {
-                        "¡Felicitaciones extraordinarias! Has resuelto todos los 30 tableros de esta categoría."
-                    } else {
-                        "¡Felicitaciones! Has resuelto todas las pistas de este tablero."
+                    text = when {
+                        isDaily -> "¡Felicitaciones! Has resuelto exitosamente el desafío diario de hoy."
+                        isCategoryFinished -> "¡Felicitaciones extraordinarias! Has resuelto todos los 30 tableros de esta categoría."
+                        else -> "¡Felicitaciones! Has resuelto todas las pistas de este tablero."
                     },
                     style = MaterialTheme.typography.bodyMedium,
                     textAlign = TextAlign.Center,
@@ -636,7 +671,17 @@ private fun CompletionDialog(
                 verticalArrangement = Arrangement.spacedBy(6.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                if (actionsEnabled && nextBoardId != null) {
+                if (isDaily && actionsEnabled) {
+                    Button(
+                        onClick = onVolver,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                        ),
+                    ) {
+                        Text("Volver al Desafío Diario")
+                    }
+                } else if (actionsEnabled && nextBoardId != null) {
                     Button(
                         onClick = { onNextBoard(nextBoardId) },
                         modifier = Modifier.fillMaxWidth(),
@@ -648,7 +693,7 @@ private fun CompletionDialog(
                     }
                 }
 
-                if (actionsEnabled) {
+                if (!isDaily && actionsEnabled) {
                     Button(
                         onClick = onViewBoards,
                         modifier = Modifier.fillMaxWidth(),
