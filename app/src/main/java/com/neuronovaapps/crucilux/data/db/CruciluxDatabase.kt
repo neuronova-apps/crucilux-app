@@ -11,8 +11,13 @@ import androidx.sqlite.db.SupportSQLiteDatabase
  * Base de datos local SQLite de Crucilux implementada con Room.
  */
 @Database(
-    entities = [CrosswordProgressEntity::class, PlayerProfileEntity::class, AchievementEntity::class],
-    version = 3,
+    entities = [
+        CrosswordProgressEntity::class,
+        PlayerProfileEntity::class,
+        AchievementEntity::class,
+        DailyChallengeEntity::class,
+    ],
+    version = 4,
     exportSchema = false,
 )
 abstract class CruciluxDatabase : RoomDatabase() {
@@ -20,6 +25,7 @@ abstract class CruciluxDatabase : RoomDatabase() {
     abstract fun progressDao(): CrosswordProgressDao
     abstract fun playerProfileDao(): PlayerProfileDao
     abstract fun achievementDao(): AchievementDao
+    abstract fun dailyChallengeDao(): DailyChallengeDao
 
     companion object {
         private const val DATABASE_NAME = "crucilux_progress.db"
@@ -52,6 +58,32 @@ abstract class CruciluxDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS daily_challenge (" +
+                        "dateKey TEXT NOT NULL PRIMARY KEY, " +
+                        "boardId TEXT NOT NULL, " +
+                        "status TEXT NOT NULL, " +
+                        "startedAt INTEGER, " +
+                        "completedAt INTEGER, " +
+                        "bestTimeSeconds INTEGER, " +
+                        "elapsedTimeSeconds INTEGER NOT NULL DEFAULT 0, " +
+                        "attemptCount INTEGER NOT NULL DEFAULT 0, " +
+                        "isRewardClaimed INTEGER NOT NULL DEFAULT 0, " +
+                        "userLetters TEXT NOT NULL DEFAULT '', " +
+                        "progressPercent INTEGER NOT NULL DEFAULT 0, " +
+                        "hintsUsed INTEGER NOT NULL DEFAULT 0, " +
+                        "hintRevealedCells TEXT NOT NULL DEFAULT '', " +
+                        "checkMode TEXT NOT NULL DEFAULT 'CLASSIC', " +
+                        "selectedRow INTEGER NOT NULL DEFAULT 0, " +
+                        "selectedCol INTEGER NOT NULL DEFAULT 0, " +
+                        "selectedDirection TEXT NOT NULL DEFAULT 'H'" +
+                    ")"
+                )
+            }
+        }
+
         @Volatile
         private var instance: CruciluxDatabase? = null
 
@@ -61,7 +93,7 @@ abstract class CruciluxDatabase : RoomDatabase() {
                     context.applicationContext,
                     CruciluxDatabase::class.java,
                     DATABASE_NAME,
-                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3).build().also { instance = it }
+                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4).build().also { instance = it }
             }
         }
     }

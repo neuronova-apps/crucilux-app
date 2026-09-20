@@ -13,8 +13,10 @@ datastorePreferences = "1.2.1"
 room = "2.6.1"
 ksp = "2.3.6"
 json = "20240303"
+desugarJdkLibs = "2.1.4"
 
 [libraries]
+desugar-jdk-libs = { group = "com.android.tools", name = "desugar_jdk_libs", version.ref = "desugarJdkLibs" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }

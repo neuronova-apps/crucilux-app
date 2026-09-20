@@ -15,12 +15,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -28,8 +26,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.neuronovaapps.crucilux.achievements.AchievementNotificationManager
 import com.neuronovaapps.crucilux.achievements.AchievementRepository
-import com.neuronovaapps.crucilux.achievements.AchievementState
 import com.neuronovaapps.crucilux.data.UserPreferences
 import com.neuronovaapps.crucilux.data.UserPreferencesManager
 import com.neuronovaapps.crucilux.navigation.CruciluxNavGraph
@@ -38,7 +36,6 @@ import com.neuronovaapps.crucilux.navigation.bottomBarRoutes
 import com.neuronovaapps.crucilux.ui.components.AchievementUnlockBanner
 import com.neuronovaapps.crucilux.ui.components.CruciluxBottomBar
 import com.neuronovaapps.crucilux.ui.theme.CruciluxTheme
-import kotlinx.coroutines.delay
 
 class MainActivity : ComponentActivity() {
 
@@ -74,25 +71,14 @@ private fun CruciluxApp(
 ) {
     val context = LocalContext.current
     val achievementRepository = remember { AchievementRepository.getInstance(context) }
-    val unnotifiedAchievements by achievementRepository.observeUnnotifiedUnlocked()
-        .collectAsState(initial = emptyList())
-
-    var currentBannerAchievement by remember { mutableStateOf<AchievementState?>(null) }
-
-    // Secuencia obligatoria:
-    // logro pendiente -> mostrar notificación -> confirmar presentación/inicio del evento visual -> markNotificationShown(id)
-    LaunchedEffect(unnotifiedAchievements) {
-        val pending = unnotifiedAchievements.firstOrNull()
-        if (pending != null && currentBannerAchievement == null) {
-            // 1. Iniciar presentación visual
-            currentBannerAchievement = pending
-            // 2. Confirmar presentación/inicio del evento visual
-            achievementRepository.markNotificationShown(pending.id)
-            // 3. Duración visible discreta
-            delay(4000)
-            currentBannerAchievement = null
-        }
+    val coroutineScope = rememberCoroutineScope()
+    val notificationManager = remember(achievementRepository) {
+        AchievementNotificationManager(
+            repository = achievementRepository,
+            scope = coroutineScope,
+        )
     }
+    val activeAchievement by notificationManager.activeAchievement.collectAsState()
 
     val navController   = rememberNavController()
     val backStackEntry  by navController.currentBackStackEntryAsState()
@@ -143,7 +129,7 @@ private fun CruciluxApp(
 
         // Notificación visual discreta in-app en la parte superior
         AnimatedVisibility(
-            visible = currentBannerAchievement != null,
+            visible = activeAchievement != null,
             enter = slideInVertically(initialOffsetY = { -it }) + fadeIn(),
             exit = slideOutVertically(targetOffsetY = { -it }) + fadeOut(),
             modifier = Modifier
@@ -152,8 +138,19 @@ private fun CruciluxApp(
                 .padding(horizontal = 16.dp, vertical = 12.dp)
                 .zIndex(100f),
         ) {
-            currentBannerAchievement?.let { achievement ->
-                AchievementUnlockBanner(achievement = achievement)
+            activeAchievement?.let { achievement ->
+                AchievementUnlockBanner(
+                    achievement = achievement,
+                    onDismiss = { notificationManager.dismissCurrent() },
+                    onClick = {
+                        notificationManager.dismissCurrent()
+                        navController.navigate(Screen.Achievements.route) {
+                            popUpTo(Screen.Home.route) { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    },
+                )
             }
         }
     }

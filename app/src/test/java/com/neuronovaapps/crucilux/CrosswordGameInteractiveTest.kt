@@ -647,5 +647,28 @@ class CrosswordGameInteractiveTest {
         assertTrue(rectangularBoard.rows != rectangularBoard.cols)
         assertTrue("Tablero rectangular debe tener pistas ordenables", allClues.isNotEmpty())
     }
+
+    @Test
+    fun `21 cronometro funcional inicia y acumula tiempo en CrosswordGameViewModel`() {
+        val vm = CrosswordGameViewModel()
+        vm.startTimer(45L)
+        assertEquals(45L, vm.state.value.elapsedTimeSeconds)
+
+        vm.startTimer(120L)
+        assertEquals(120L, vm.state.value.elapsedTimeSeconds)
+
+        vm.stopTimer()
+        assertEquals(120L, vm.state.value.elapsedTimeSeconds)
+    }
+
+    @Test
+    fun `22 cronometro se detiene al completar crucigrama y preserva tiempo acumulado`() {
+        val vm = CrosswordGameViewModel()
+        vm.startTimer(75L)
+        assertEquals(75L, vm.state.value.elapsedTimeSeconds)
+
+        vm.stopTimer()
+        assertEquals(75L, vm.state.value.elapsedTimeSeconds)
+    }
 }
 

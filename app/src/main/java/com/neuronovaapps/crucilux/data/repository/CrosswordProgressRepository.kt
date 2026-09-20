@@ -107,6 +107,7 @@ class CrosswordProgressRepository(
     private val playerProfileDao: PlayerProfileDao? = null,
     private val database: CruciluxDatabase? = null,
     private val achievementRepository: com.neuronovaapps.crucilux.achievements.AchievementRepository? = null,
+    private val dailyChallengeRepository: com.neuronovaapps.crucilux.data.daily.DailyChallengeRepository? = null,
 ) {
 
     // ──────────────────────────────────────────────────────────────────────────
@@ -242,6 +243,7 @@ class CrosswordProgressRepository(
         awardCompletion: Boolean = false,
         xpFinal: Int = 0,
     ): BoardCompletionResult? {
+        var isBoardCompleted = false
         val result = inTransaction {
             val existing = dao.getProgress(boardId)
             val alreadyCompleted = existing?.status == CrosswordBoardStatus.COMPLETED.name
@@ -264,6 +266,9 @@ class CrosswordProgressRepository(
             // Si ya estaba completado, nunca degradar a IN_PROGRESS
             val finalStatus = if (alreadyCompleted) CrosswordBoardStatus.COMPLETED else status
             val finalPercent = if (alreadyCompleted) 100 else percent
+            if (finalStatus == CrosswordBoardStatus.COMPLETED) {
+                isBoardCompleted = true
+            }
 
             val existingLetters = existing?.userLetters.orEmpty()
             val serializedLetters = if (alreadyCompleted && existingLetters.isNotBlank()) {
@@ -320,6 +325,43 @@ class CrosswordProgressRepository(
             Log.w(TAG, "Error sincronizando logros en saveProgress", exception)
         }
 
+        if (isBoardCompleted) {
+            try {
+                dailyChallengeRepository?.onBoardCompleted(boardId)
+            } catch (exception: Exception) {
+                Log.w(TAG, "Error notificando al desafío diario en saveProgress", exception)
+            }
+        }
+
+        return result
+    }
+
+    /**
+     * Marca un tablero como completado, calcula y otorga XP y notifica al desafío diario si aplica.
+     */
+    suspend fun markBoardCompleted(
+        boardId: String,
+        xpEarned: Int = 0,
+        completionTimeSeconds: Long = 0L,
+        hintsUsed: Int = 0,
+        dailyDateKey: String? = null,
+    ): BoardCompletionResult? {
+        val board = bankRepository.getBoardById(boardId)
+        val category = board?.category.orEmpty()
+        val grid = if (board != null) com.neuronovaapps.crucilux.engine.CruciluxGridEngine.buildGrid(board) else null
+        val result = saveProgress(
+            boardId = boardId,
+            category = category,
+            userLetters = emptyMap(),
+            grid = grid,
+            isCompletedOverride = true,
+            awardCompletion = true,
+            xpFinal = xpEarned,
+            hintsUsed = hintsUsed,
+        )
+        if (dailyDateKey != null) {
+            dailyChallengeRepository?.onBoardCompleted(dateKey = dailyDateKey, boardId = boardId)
+        }
         return result
     }
 
@@ -495,6 +537,7 @@ class CrosswordProgressRepository(
                         playerProfileDao = db.playerProfileDao(),
                         database = db,
                         achievementRepository = com.neuronovaapps.crucilux.achievements.AchievementRepository.getInstance(context),
+                        dailyChallengeRepository = com.neuronovaapps.crucilux.data.daily.DailyChallengeRepository.getInstance(context),
                     ).also { instance = it }
                 }
             }

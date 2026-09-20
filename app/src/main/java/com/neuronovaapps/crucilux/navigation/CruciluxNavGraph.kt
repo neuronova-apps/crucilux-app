@@ -14,6 +14,7 @@ import com.neuronovaapps.crucilux.ui.game.CrosswordGameScreen
 import com.neuronovaapps.crucilux.ui.screens.AboutScreen
 import com.neuronovaapps.crucilux.ui.screens.AchievementsScreen
 import com.neuronovaapps.crucilux.ui.screens.CategoryBoardsScreen
+import com.neuronovaapps.crucilux.ui.screens.DailyChallengeScreen
 import com.neuronovaapps.crucilux.ui.screens.GameSetupReadyScreen
 import com.neuronovaapps.crucilux.ui.screens.HomeScreen
 import com.neuronovaapps.crucilux.ui.screens.PlayScreen
@@ -32,6 +33,7 @@ sealed class Screen(val route: String) {
         }
     }
     object Progress       : Screen("progress")
+    object DailyChallenge : Screen("daily_challenge")
     object Achievements   : Screen("achievements")
     object Settings       : Screen("settings")
     object About          : Screen("about")
@@ -40,9 +42,13 @@ sealed class Screen(val route: String) {
             return "game_setup_ready/$category"
         }
     }
-    object Game : Screen("game/{boardId}") {
-        fun createRoute(boardId: String): String {
-            return "game/$boardId"
+    object Game : Screen("game/{boardId}?dailyDateKey={dailyDateKey}") {
+        fun createRoute(boardId: String, dailyDateKey: String? = null): String {
+            return if (dailyDateKey != null) {
+                "game/$boardId?dailyDateKey=$dailyDateKey"
+            } else {
+                "game/$boardId"
+            }
         }
     }
 }
@@ -86,6 +92,11 @@ fun CruciluxNavGraph(
                 },
                 onContinuar = { boardId ->
                     navController.navigate(Screen.Game.createRoute(boardId)) {
+                        launchSingleTop = true
+                    }
+                },
+                onOpenDailyChallenge = {
+                    navController.navigate(Screen.DailyChallenge.route) {
                         launchSingleTop = true
                     }
                 },
@@ -183,15 +194,34 @@ fun CruciluxNavGraph(
                 },
             )
         }
+        composable(Screen.DailyChallenge.route) {
+            DailyChallengeScreen(
+                onVolver = {
+                    navController.popBackStack()
+                },
+                onPlayBoard = { boardId, dailyDateKey ->
+                    navController.navigate(Screen.Game.createRoute(boardId, dailyDateKey)) {
+                        launchSingleTop = true
+                    }
+                },
+            )
+        }
         composable(
             route = Screen.Game.route,
             arguments = listOf(
                 navArgument("boardId") { type = NavType.StringType },
+                navArgument("dailyDateKey") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                },
             ),
         ) { backStackEntry ->
             val boardId = backStackEntry.arguments?.getString("boardId") ?: ""
+            val dailyDateKey = backStackEntry.arguments?.getString("dailyDateKey")
             CrosswordGameScreen(
                 boardId = boardId,
+                dailyDateKey = dailyDateKey,
                 onVolver = {
                     navController.popBackStack()
                 },

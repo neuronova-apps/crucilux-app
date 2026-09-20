@@ -73,6 +73,7 @@ fun HomeScreen(
     userName: String = "",
     onComenzar: () -> Unit,
     onContinuar: (boardId: String) -> Unit = {},
+    onOpenDailyChallenge: () -> Unit = {},
     onOpenAchievements: () -> Unit = {},
     onOpenSettings: () -> Unit = {},
 ) {
@@ -80,6 +81,7 @@ fun HomeScreen(
     val progressRepository = remember { CrosswordProgressRepository.getInstance(context) }
     val sessionManager = remember { GameSessionManager.getInstance(context) }
     val achievementRepository = remember { com.neuronovaapps.crucilux.achievements.AchievementRepository.getInstance(context) }
+    val dailyChallengeRepository = remember { com.neuronovaapps.crucilux.data.daily.DailyChallengeRepository.getInstance(context) }
 
     // Migración legacy única y sincronización de logros con progreso existente
     LaunchedEffect(Unit) {
@@ -89,6 +91,10 @@ fun HomeScreen(
 
     // Observar partida IN_PROGRESS más reciente desde Room
     val mostRecentInProgress by progressRepository.observeMostRecentInProgress()
+        .collectAsState(initial = null)
+
+    // Observar desafío diario desde Room
+    val dailyChallenge by dailyChallengeRepository.observeTodayChallenge()
         .collectAsState(initial = null)
 
     // Observar estadísticas globales desde Room
@@ -194,7 +200,11 @@ fun HomeScreen(
                 .padding(horizontal = 20.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            DailyChallengeCard(Modifier.weight(1f))
+            DailyChallengeCard(
+                challenge = dailyChallenge,
+                onClick = onOpenDailyChallenge,
+                modifier = Modifier.weight(1f),
+            )
             AchievementsCard(
                 summary = achievementSummary,
                 onClick = onOpenAchievements,
@@ -453,11 +463,32 @@ private fun StatDivider() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
-private fun DailyChallengeCard(modifier: Modifier = Modifier) {
+private fun DailyChallengeCard(
+    challenge: com.neuronovaapps.crucilux.data.daily.DailyChallengeInfo?,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val isCompleted = challenge?.isCompleted == true
+    val isInProgress = challenge?.isInProgress == true
+
+    val statusText = when {
+        challenge == null -> "Cargando..."
+        isCompleted -> "Completado"
+        isInProgress -> "${challenge.progressPercent}% completado"
+        else -> "Disponible hoy"
+    }
+
+    val streakText = if (challenge != null && challenge.currentStreak > 0) {
+        ", racha actual ${challenge.currentStreak} días"
+    } else ""
+
     Card(
-        modifier  = modifier.semantics {
-            contentDescription = "Desafío diario, próximamente disponible"
-        },
+        modifier  = modifier
+            .clip(RoundedCornerShape(16.dp))
+            .clickable(role = Role.Button, onClick = onClick)
+            .semantics {
+                contentDescription = "Desafío diario, $statusText$streakText. Toca para abrir el desafío diario"
+            },
         shape     = RoundedCornerShape(16.dp),
         colors    = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface,
@@ -478,19 +509,51 @@ private fun DailyChallengeCard(modifier: Modifier = Modifier) {
                 .fillMaxWidth()
                 .padding(14.dp),
         ) {
-            Box(
-                modifier = Modifier
-                    .size(32.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)),
-                contentAlignment = Alignment.Center,
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(
-                    imageVector        = Icons.Default.CalendarToday,
-                    contentDescription = null,
-                    tint               = MaterialTheme.colorScheme.secondary,
-                    modifier           = Modifier.size(17.dp),
-                )
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(
+                            if (isCompleted) {
+                                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
+                            } else {
+                                MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
+                            }
+                        ),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector        = if (isCompleted) Icons.Default.CheckCircleOutline else Icons.Default.CalendarToday,
+                        contentDescription = null,
+                        tint               = if (isCompleted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary,
+                        modifier           = Modifier.size(17.dp),
+                    )
+                }
+
+                if (challenge != null && challenge.currentStreak > 0) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(2.dp),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.EmojiEvents,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(14.dp),
+                        )
+                        Text(
+                            text = "${challenge.currentStreak} d",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                }
             }
             Spacer(Modifier.height(10.dp))
             Text(
@@ -501,9 +564,10 @@ private fun DailyChallengeCard(modifier: Modifier = Modifier) {
             )
             Spacer(Modifier.height(2.dp))
             Text(
-                text  = "Próximamente",
+                text  = statusText,
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = if (isCompleted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                fontWeight = if (isCompleted) FontWeight.SemiBold else FontWeight.Normal,
             )
         }
     }
