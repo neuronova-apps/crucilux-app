@@ -18,7 +18,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         DailyChallengeEntity::class,
     ],
     version = 4,
-    exportSchema = false,
+    exportSchema = true,
 )
 abstract class CruciluxDatabase : RoomDatabase() {
 

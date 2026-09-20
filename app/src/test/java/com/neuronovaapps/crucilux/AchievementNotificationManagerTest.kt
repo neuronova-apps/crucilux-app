@@ -382,7 +382,11 @@ class AchievementNotificationManagerTest {
         )
 
         // Esperar que first_crossword aparezca y sea marcado en Room
-        delay(25L)
+        var waited1 = 0
+        while (session1Manager.activeAchievement.value?.id != CruciluxAchievements.ID_FIRST_CROSSWORD && waited1 < 500) {
+            delay(10L)
+            waited1 += 10
+        }
         assertEquals(CruciluxAchievements.ID_FIRST_CROSSWORD, session1Manager.activeAchievement.value?.id)
 
         // Simular interrupción / cierre abrupto de la app antes de que se muestre grand_grid
@@ -406,7 +410,11 @@ class AchievementNotificationManagerTest {
             transitionDelayMs = 20L,
         )
 
-        delay(25L)
+        var waited2 = 0
+        while (session2Manager.activeAchievement.value?.id != CruciluxAchievements.ID_GRAND_GRID && waited2 < 500) {
+            delay(10L)
+            waited2 += 10
+        }
         // first_crossword NO debe volver a aparecer; únicamente grand_grid
         assertEquals("En la nueva sesión solo debe aparecer el logro no notificado (grand_grid)", CruciluxAchievements.ID_GRAND_GRID, session2Manager.activeAchievement.value?.id)
 

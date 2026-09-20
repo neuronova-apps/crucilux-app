@@ -35,6 +35,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -42,6 +43,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -91,9 +93,33 @@ fun CrosswordGameScreen(
     var showAdditionalHintDialog by remember { mutableStateOf(false) }
     var showResetDialog by remember { mutableStateOf(false) }
     var pendingNextBoardId by remember { mutableStateOf<String?>(null) }
+    var isNavigatingBack by rememberSaveable { mutableStateOf(false) }
+
     val viewModel: CrosswordGameViewModel = viewModel(
         factory = CrosswordGameViewModel.factory(progressRepository, sessionManager, dailyChallengeRepository)
     )
+
+    val handleVolver: () -> Unit = {
+        when {
+            pendingNextBoardId != null -> {
+                pendingNextBoardId = null
+            }
+            showResetDialog -> {
+                showResetDialog = false
+            }
+            showAdditionalHintDialog -> {
+                showAdditionalHintDialog = false
+            }
+            !isNavigatingBack -> {
+                isNavigatingBack = true
+                viewModel.stopTimer()
+                viewModel.saveSessionNow()
+                onVolver()
+            }
+        }
+    }
+
+    BackHandler(enabled = true, onBack = handleVolver)
 
     LaunchedEffect(boardId, dailyDateKey) {
         viewModel.loadBoard(boardId, dailyDateKey)
@@ -119,10 +145,7 @@ fun CrosswordGameScreen(
                 if (HintRules.requiresAdditionalConfirmation(state.hintsUsed)) showAdditionalHintDialog = true
                 else viewModel.useHint()
             },
-            onVolver = {
-                viewModel.saveSessionNow()
-                onVolver()
-            },
+            onVolver = handleVolver,
         )
 
         // ── Contenido principal de partida ───────────────────────────────────
@@ -235,11 +258,8 @@ fun CrosswordGameScreen(
                     }
                 }
             },
-            onViewBoards = {
-                viewModel.saveSessionNow()
-                onVolver()
-            },
-            onVolver = onVolver,
+            onViewBoards = handleVolver,
+            onVolver = handleVolver,
             onRequestReset = { showResetDialog = true },
             onRetrySave = { viewModel.saveSessionNow() },
         )
