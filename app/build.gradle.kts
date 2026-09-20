@@ -1,8 +1,33 @@
+import java.io.File
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
 }
+
+val keystorePropertiesFile = rootProject.file("keystore.properties").takeIf { it.exists() }
+    ?: project.file("keystore.properties").takeIf { it.exists() }
+val keystoreProperties = Properties().apply {
+    keystorePropertiesFile?.inputStream()?.use { load(it) }
+}
+
+val releaseStoreFilePath = keystoreProperties.getProperty("storeFile")?.trim()
+val releaseStorePassword = keystoreProperties.getProperty("storePassword")?.trim()
+val releaseKeyAlias = keystoreProperties.getProperty("keyAlias")?.trim()
+val releaseKeyPassword = keystoreProperties.getProperty("keyPassword")?.trim()
+
+val releaseStoreFile: File? = releaseStoreFilePath?.let { path ->
+    val directFile = File(path)
+    if (directFile.isAbsolute) directFile else rootProject.file(path)
+}
+
+val isReleaseSigningConfigured = releaseStoreFile != null &&
+    releaseStoreFile.exists() &&
+    !releaseStorePassword.isNullOrBlank() &&
+    !releaseKeyAlias.isNullOrBlank() &&
+    !releaseKeyPassword.isNullOrBlank()
 
 android {
     namespace = "com.neuronovaapps.crucilux"
@@ -20,11 +45,28 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        if (isReleaseSigningConfigured) {
+            create("release") {
+                storeFile = releaseStoreFile
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+            }
+        }
+    }
+
     buildTypes {
         release {
-            optimization {
-                enable = false
+            if (isReleaseSigningConfigured) {
+                signingConfig = signingConfigs.getByName("release")
             }
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
         }
     }
     compileOptions {

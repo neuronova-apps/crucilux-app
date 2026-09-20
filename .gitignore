@@ -8,3 +8,16 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# Signing & Secret Keys
+*.jks
+*.keystore
+keystore.properties
+keystore.properties.local
+
+# Release Artifacts
+*.aab
+*.apk
+
+# Local helper scripts
+setup-crucilux-keystore.ps1
