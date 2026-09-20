@@ -24,6 +24,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -196,7 +197,9 @@ class CrosswordGameViewModel(
                 if (isDailySession) {
                     val currentChallenge = dailyChallenge ?: return@launch
                     val isDailyCompleted = currentChallenge.isCompleted
-                    val hasDailyLetters = currentChallenge.userLetters.isNotEmpty()
+                    val hasDailySessionInProgress = currentChallenge.userLetters.isNotEmpty() ||
+                        currentChallenge.isInProgress ||
+                        currentChallenge.elapsedTimeSeconds > 0L
 
                     if (isDailyCompleted) {
                         val userLetters = dailyChallenge.userLetters
@@ -231,7 +234,7 @@ class CrosswordGameViewModel(
                         )
                         stopTimer()
                         return@launch
-                    } else if (hasDailyLetters) {
+                    } else if (hasDailySessionInProgress) {
                         val userLetters = dailyChallenge.userLetters
                         val (valBankIds, valCells) = computeValidatedState(grid, board, userLetters)
                         val isComp = valBankIds.size == board.entries.size && board.entries.isNotEmpty()
@@ -904,7 +907,7 @@ class CrosswordGameViewModel(
         val st = _state.value
         val board = st.board ?: return
 
-        viewModelScope.launch(Dispatchers.IO) {
+        viewModelScope.launch(Dispatchers.IO + NonCancellable) {
             try {
                 saveMutex.withLock {
                     val latest = _state.value

@@ -670,5 +670,17 @@ class CrosswordGameInteractiveTest {
         vm.stopTimer()
         assertEquals(75L, vm.state.value.elapsedTimeSeconds)
     }
+
+    @Test
+    fun `23 detencion de cronometro y guardado de sesion preserva tiempo transcurrido sin duplicar`() {
+        val vm = CrosswordGameViewModel()
+        vm.startTimer(150L)
+        assertEquals(150L, vm.state.value.elapsedTimeSeconds)
+
+        vm.stopTimer()
+        vm.saveSessionNow()
+
+        assertEquals(150L, vm.state.value.elapsedTimeSeconds)
+    }
 }
 
